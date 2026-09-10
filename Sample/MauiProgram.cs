@@ -29,7 +29,7 @@ public static class MauiProgram
                 // Guards run in registration order on every navigation - route, typed, builder,
                 // back, app links, shortcuts, and tab taps.
                 .AddNavigationInterceptor<LoggingNavigationInterceptor>()
-                .AddNavigationInterceptor<DetailGuardNavigationInterceptor>()
+                .AddNavigationInterceptor<AskFirstNavigationInterceptor>()
             )
             .ConfigureFonts(fonts =>
             {

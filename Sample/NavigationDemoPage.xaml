@@ -23,21 +23,6 @@
             <Button Text="Push by ViewModel (configure)"
                     Command="{Binding PushByViewModelConfigureCommand}" />
 
-            <Label Text="Navigation Interceptors" FontAttributes="Bold" FontSize="16" Padding="0,10,0,0" />
-
-            <HorizontalStackLayout Spacing="10">
-                <Switch IsToggled="{Binding BlockDetail}" />
-                <Label Text="Cancel navigation to Detail" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-
-            <HorizontalStackLayout Spacing="10">
-                <Switch IsToggled="{Binding RedirectDetail}" />
-                <Label Text="Redirect Detail to Long Text" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-
-            <Button Text="Push (bypass interceptors)"
-                    Command="{Binding PushBypassingInterceptorsCommand}" />
-
             <Label Text="Pop Navigation" FontAttributes="Bold" FontSize="16" Padding="0,10,0,0" />
 
             <Button Text="Go Back"

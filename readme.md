@@ -724,6 +724,54 @@ A blocked app link reports `AppLinkResult.Blocked` from `IAppLinks.Handle` - dis
 saying otherwise invites iOS to open the URL in a browser instead, which is the opposite of what a
 guard that just blocked it wants.
 
+### Asking the user
+
+The interceptor is async, so a dialog is a legal thing to await - the navigation has not been
+handed to Shell yet and simply waits on the answer. One action sheet can produce all three
+outcomes (this is `AskFirstNavigationInterceptor`, on the sample's **Route Interceptor** page):
+
+```csharp
+public class AskFirstNavigationInterceptor(
+    IDialogs dialogs,
+    INavigationContextAccessor context
+) : INavigationInterceptor
+{
+    const string LetItGo = "Let it through";
+    const string SendElsewhere = "Redirect to Lifecycle";
+    const string StopIt = "Stop navigation";
+
+    public async Task<NavigationInterceptorResult> InterceptNavigationAsync(
+        string uri,
+        object? viewModel,
+        CancellationToken cancellationToken
+    )
+    {
+        // narrow to one destination - otherwise every tab tap and back press prompts
+        if (viewModel is not DetailViewModel detail)
+            return NavigationInterceptorResult.Continue;
+
+        var choice = await dialogs.ActionSheet(
+            $"{context.Current?.FromUri} -> {uri} (Text: '{detail.Text}')",
+            cancel: StopIt,          // dismissing the sheet lands here too
+            destruction: null,
+            buttons: [LetItGo, SendElsewhere]
+        );
+
+        return choice switch
+        {
+            LetItGo => NavigationInterceptorResult.Continue,
+            SendElsewhere => NavigationInterceptorResult.Redirect<LifecycleDemoViewModel>(relativeNavigation: true),
+            _ => NavigationInterceptorResult.Cancel()
+        };
+    }
+}
+```
+
+Two things worth copying from it: the early `Continue` when the destination is not the one being
+guarded (an interceptor sees *every* navigation, so an unguarded prompt fires on tab taps), and
+treating the sheet's cancel/dismiss path as `Cancel()` - the safe default when the user did not
+actually answer.
+
 ### Interceptors vs. the other hooks
 
 - **`INavigationInterceptor`** - app-wide, about the destination, can cancel *and* redirect.

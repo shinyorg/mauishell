@@ -19,6 +19,7 @@ public partial class HomeViewModel(INavigator navigator) : ObservableObject
             new("XAML Declarative", "Navigate attached properties on buttons", () => navigator.NavigateTo(nameof(XamlNavDemoPage))),
             new("Builder Chain", "Fluent multi-segment navigation", () => navigator.NavigateTo(nameof(BuilderDemoPage))),
             new("Modal", "Modal page presentation", () => navigator.NavigateTo("modal")),
+            new("Route Interceptor", "An action sheet decides: continue, redirect or cancel", () => navigator.NavigateTo(nameof(InterceptorDemoPage))),
         },
         new("Features")
         {

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:sample="clr-namespace:Sample"
+             x:DataType="sample:InterceptorDemoViewModel"
+             x:Class="Sample.InterceptorDemoPage"
+             Title="Route Interceptor">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="12">
+
+            <Label Text="AskFirstNavigationInterceptor sits in front of every navigation to the Detail page and asks - with an action sheet - what to do with it."
+                   TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" />
+
+            <HorizontalStackLayout Spacing="10">
+                <Switch IsToggled="{Binding AskBeforeDetail}" />
+                <Label Text="Ask before navigating to Detail" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
+            <Label Text="Sheet options: 'Let it through' navigates as normal, 'Redirect to Lifecycle' abandons the Detail page for the Lifecycle page, 'Stop navigation' (or dismissing the sheet) leaves you here."
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" />
+
+            <Button Text="Push Detail (guarded)"
+                    Command="{Binding PushGuardedCommand}" />
+
+            <Button Text="Push Detail (bypass interceptors)"
+                    Command="{Binding PushBypassingCommand}" />
+
+            <Label Text="{Binding LastResult, StringFormat='Last result: {0}'}"
+                   IsVisible="{Binding HasResult}"
+                   FontAttributes="Bold" />
+
+            <Label Text="NavigateTo returns Task&lt;bool&gt; - false means an interceptor cancelled the navigation. A redirect returns true, because the navigation did happen, elsewhere."
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" />
+
+            <Label Text="Every navigation, guarded or not" FontAttributes="Bold" FontSize="16" Padding="0,10,0,0" />
+
+            <Label Text="LoggingNavigationInterceptor runs on everything - tab taps, back presses, app links and shortcuts included - and writes each one to the debug log."
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" />
+
+            <Button Text="Go Back (also intercepted)"
+                    Command="{Binding GoBackCommand}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

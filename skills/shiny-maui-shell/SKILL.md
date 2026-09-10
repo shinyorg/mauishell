@@ -455,6 +455,9 @@ builder.UseShinyShell(x => x
   only cares which way the user is going; `.GetDirection()` converts any `NavigationType`.
 - An inbound app link a guard blocks reports `AppLinkResult.Blocked` from `IAppLinks.Handle`
   (distinct from `Unhandled`, which means nothing matched).
+- A dialog can be awaited inside an interceptor (`IDialogs.Confirm` / `ActionSheet`) - the
+  navigation waits on the answer. Treat a dismissed sheet (which returns the `cancel` text) as
+  `Cancel()`, and always narrow to the destination being guarded first.
 
 ```csharp
 // Unsaved-changes guard: uses the page being left, not the destination
@@ -475,6 +478,41 @@ public class UnsavedChangesInterceptor(
         return await dialogs.Confirm("Unsaved Changes", "Discard changes?")
             ? NavigationInterceptorResult.Continue
             : NavigationInterceptorResult.Cancel();
+    }
+}
+```
+
+```csharp
+// One action sheet, all three outcomes - a dialog is awaitable here because the navigation has
+// not been handed to Shell yet
+public class AskFirstInterceptor(IDialogs dialogs) : INavigationInterceptor
+{
+    const string LetItGo = "Let it through";
+    const string SendElsewhere = "Go to Settings instead";
+    const string StopIt = "Stop navigation";
+
+    public async Task<NavigationInterceptorResult> InterceptNavigationAsync(
+        string uri,
+        object? viewModel,
+        CancellationToken cancellationToken
+    )
+    {
+        if (viewModel is not DetailViewModel)   // always narrow, or tab taps prompt too
+            return NavigationInterceptorResult.Continue;
+
+        var choice = await dialogs.ActionSheet(
+            $"Navigating to '{uri}'",
+            cancel: StopIt,          // a dismissed sheet returns the cancel text
+            destruction: null,
+            buttons: [LetItGo, SendElsewhere]
+        );
+
+        return choice switch
+        {
+            LetItGo => NavigationInterceptorResult.Continue,
+            SendElsewhere => NavigationInterceptorResult.Redirect<SettingsViewModel>(relativeNavigation: true),
+            _ => NavigationInterceptorResult.Cancel()   // cancel, dismissed or unknown
+        };
     }
 }
 ```

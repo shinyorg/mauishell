@@ -5,16 +5,15 @@ namespace Sample;
 
 
 /// <summary>
-/// Flipped from the Push &amp; Pop page so the interceptors can be seen doing all three things
-/// without restarting the app.
+/// Flipped from the Push &amp; Pop page so the interceptor can be armed without restarting the app.
 /// </summary>
 public class NavigationGuardSwitch
 {
-    /// <summary>Cancels navigation to the detail page - as an unsaved-changes guard would.</summary>
-    public bool BlockDetail { get; set; }
-
-    /// <summary>Sends the detail page somewhere else - as an auth guard would.</summary>
-    public bool RedirectDetail { get; set; }
+    /// <summary>
+    /// When on, <see cref="AskFirstNavigationInterceptor"/> asks - with an action sheet - what to
+    /// do with every navigation to the detail page.
+    /// </summary>
+    public bool AskBeforeDetail { get; set; }
 }
 
 
@@ -49,15 +48,25 @@ public class LoggingNavigationInterceptor(
 
 
 /// <summary>
-/// The guard case. Note what it does with the ViewModel: it is the real instance about to be bound
-/// to the page, already carrying the arguments the caller passed, so a guard can decide on the
-/// destination's own state rather than on the URI alone.
+/// The guard case, made visible: an action sheet decides - live, per navigation - whether the route
+/// goes through, goes somewhere else, or does not go at all. A real guard asks an auth service or a
+/// dirty-state flag instead of the user, but the shape of the method is identical: await something,
+/// then return Continue, Redirect or Cancel.
 /// </summary>
-public class DetailGuardNavigationInterceptor(
+/// <remarks>
+/// The interceptor is async all the way, so a dialog is a legal thing to await here - the
+/// navigation has not been handed to Shell yet and simply waits on the answer.
+/// </remarks>
+public class AskFirstNavigationInterceptor(
     NavigationGuardSwitch guards,
-    IDialogs dialogs
+    IDialogs dialogs,
+    INavigationContextAccessor context
 ) : INavigationInterceptor
 {
+    const string LetItGo = "Let it through";
+    const string SendElsewhere = "Redirect to Lifecycle";
+    const string StopIt = "Stop navigation";
+
     // Guards run before anything that only observes.
     public int Order => -100;
 
@@ -67,25 +76,36 @@ public class DetailGuardNavigationInterceptor(
         CancellationToken cancellationToken
     )
     {
-        if (viewModel is not DetailViewModel detail)
+        // Narrow to one destination - without this, every tab tap and back press would prompt.
+        // `viewModel` is the real destination instance, already populated with whatever the caller
+        // passed, so a guard can decide on the destination's own state and not just its URI.
+        if (!guards.AskBeforeDetail || viewModel is not DetailViewModel detail)
             return NavigationInterceptorResult.Continue;
 
-        if (guards.BlockDetail)
-        {
-            await dialogs.Alert("Blocked", $"An interceptor cancelled navigation to '{uri}'");
-            return NavigationInterceptorResult.Cancel();
-        }
+        // Everything the sheet shows comes from the navigation in flight: where the user is now
+        // (INavigationContextAccessor), where they asked to go, and the state of the destination
+        // ViewModel itself - `Text` is already set when the caller used the configure overload.
+        var choice = await dialogs.ActionSheet(
+            $"{context.Current?.FromUri} -> {uri} (Text: '{detail.Text}')",
+            // Dismissing the sheet lands here too, which is the safe default for a guard.
+            cancel: StopIt,
+            destruction: null,
+            buttons: [LetItGo, SendElsewhere]
+        );
 
-        if (guards.RedirectDetail)
+        return choice switch
         {
-            // Refactor-safe: the route comes from the ViewModel map, not a string. The detail
-            // ViewModel handed to us here is dropped - its page is never built.
-            return NavigationInterceptorResult.Redirect<LifecycleDemoViewModel>(relativeNavigation: true);
-        }
+            // The page is built and bound to `detail` exactly as if no interceptor existed.
+            LetItGo => NavigationInterceptorResult.Continue,
 
-        // Nothing to veto. Note that `detail` is the instance the page will be bound to, so a
-        // guard can also fix up the destination instead of blocking it - though anything the
-        // caller passed as a navigation argument is applied by Shell afterwards and wins.
-        return NavigationInterceptorResult.Continue;
+            // Refactor-safe redirect: the route comes from the ViewModel map, not a string. The
+            // detail ViewModel above is dropped - its page is never built - and the whole chain
+            // re-runs against the new URI (which is not the detail page, so it is not re-prompted).
+            SendElsewhere => NavigationInterceptorResult.Redirect<LifecycleDemoViewModel>(relativeNavigation: true),
+
+            // Nothing moves: the user stays on `context.Current?.FromUri` and no further
+            // interceptor in the chain runs.
+            _ => NavigationInterceptorResult.Cancel()
+        };
     }
 }
