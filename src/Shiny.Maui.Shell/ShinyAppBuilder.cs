@@ -9,6 +9,9 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
     public MauiAppBuilder MauiBuilder => builder;
     
     readonly Dictionary<string, (bool RegisterRoute, Type PageType, Type ViewModelType)> typeMap = new();
+    // Tuple elements can't carry [DynamicallyAccessedMembers], so the DI registrations are captured
+    // while TPage/TViewModel are still annotated generics rather than replayed from typeMap's Types.
+    readonly Dictionary<string, Action<IServiceCollection>> registrations = new();
     readonly List<(string Template, Type ViewModelType, Func<object, IReadOnlyDictionary<string, string>, bool> Apply)> appLinks = new();
     readonly List<(string? Id, Type ViewModelType, string Title, string? Subtitle, string? Icon, int Order, Action<object>? Configure)> appShortcuts = new();
     Action<AppLinkOptions>? appLinkOptions;
@@ -30,6 +33,11 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
     {
         route ??= typeof(TPage).Name;
         this.typeMap[route] = (registerRoute, typeof(TPage), typeof(TViewModel));
+        this.registrations[route] = services =>
+        {
+            services.AddTransient<TPage>();
+            services.AddTransient<TViewModel>();
+        };
         return this;
     }
 
@@ -267,9 +275,8 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
     {
         foreach (var pair in this.typeMap)
         {
-            builder.Services.AddTransient(pair.Value.PageType);
-            builder.Services.AddTransient(pair.Value.ViewModelType);
-            
+            this.registrations[pair.Key](builder.Services);
+
             if (pair.Value.RegisterRoute)
             {
                 Routing.RegisterRoute(
