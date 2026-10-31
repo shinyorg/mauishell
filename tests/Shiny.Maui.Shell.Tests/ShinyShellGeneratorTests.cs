@@ -67,6 +67,7 @@ namespace Shiny
         public ShinyAppBuilder Add<TPage, TViewModel>(string route = null, bool registerRoute = true) => this;
         public ShinyAppBuilder AddAppLink<TViewModel>(string template, System.Func<TViewModel, System.Collections.Generic.IReadOnlyDictionary<string, string>, bool> apply) where TViewModel : class => this;
         public ShinyAppBuilder AddAppShortcut<TViewModel>(string title, string subtitle = null, string icon = null, int order = 0, string id = null, System.Action<TViewModel> configure = null) where TViewModel : class => this;
+        public ShinyAppBuilder AddRouteInfo(Shiny.Infrastructure.GeneratedRouteInfo info) => this;
     }
 }
 

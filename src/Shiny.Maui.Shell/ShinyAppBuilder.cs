@@ -12,6 +12,7 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
     // Tuple elements can't carry [DynamicallyAccessedMembers], so the DI registrations are captured
     // while TPage/TViewModel are still annotated generics rather than replayed from typeMap's Types.
     readonly Dictionary<string, Action<IServiceCollection>> registrations = new();
+    readonly Dictionary<string, GeneratedRouteInfo> routeInfo = new();
     readonly List<(string Template, Type ViewModelType, Func<object, IReadOnlyDictionary<string, string>, bool> Apply)> appLinks = new();
     readonly List<(string? Id, Type ViewModelType, string Title, string? Subtitle, string? Icon, int Order, Action<object>? Configure)> appShortcuts = new();
     Action<AppLinkOptions>? appLinkOptions;
@@ -229,6 +230,42 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
         this.appLinks.Add((template, typeof(TViewModel), (vm, values) => apply((TViewModel)vm, values)));
         return this;
     }
+
+
+    /// <summary>
+    /// Describes a mapped route - its description and <c>[ShellProperty]</c> parameters - so
+    /// <see cref="IRouteRegistry"/> can report them. Called by the source-generated
+    /// <c>AddGeneratedMaps()</c> for every <c>[ShellMap]</c>; there is no need to call it by hand,
+    /// though a hand-mapped route can be described this way too.
+    /// </summary>
+    /// <remarks>Order does not matter: the route may be described before or after it is mapped.</remarks>
+    public ShinyAppBuilder AddRouteInfo(GeneratedRouteInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+
+        this.routeInfo[info.Route] = info;
+        return this;
+    }
+
+
+    /// <summary>
+    /// Every mapped route, joined with its description when it has one. Backs <see cref="RouteRegistry"/>.
+    /// </summary>
+    internal IReadOnlyList<RouteRegistration> GetRouteRegistrations()
+        => this.typeMap
+            .Select(pair =>
+            {
+                this.routeInfo.TryGetValue(pair.Key, out var info);
+                return new RouteRegistration(
+                    pair.Key,
+                    pair.Value.PageType,
+                    pair.Value.ViewModelType,
+                    pair.Value.RegisterRoute,
+                    String.IsNullOrWhiteSpace(info?.Description) ? null : info!.Description,
+                    info?.Parameters
+                );
+            })
+            .ToList();
 
 
     /// <summary>

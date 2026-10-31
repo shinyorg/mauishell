@@ -1044,6 +1044,15 @@ public class ShinyShellGenerator : IIncrementalGenerator
             }
         }
 
+        // Descriptions and [ShellProperty] parameters, so IRouteRegistry can list them at runtime
+        // without the opt-in AI extensions.
+        foreach (var cls in classes)
+        {
+            sb.AppendLine("        builder.AddRouteInfo(");
+            AppendGeneratedRouteInfo(sb, cls, "            ");
+            sb.AppendLine(");");
+        }
+
         foreach (var cls in classes)
             GenerateAppLinkRegistrations(sb, cls);
 
@@ -1122,37 +1131,7 @@ public class ShinyShellGenerator : IIncrementalGenerator
 
         for (int i = 0; i < classes.Length; i++)
         {
-            var cls = classes[i];
-            var descriptionArg = cls.Description != null
-                ? $"\"{EscapeString(cls.Description)}\""
-                : "\"\"";
-
-            sb.AppendLine($"        new global::Shiny.Infrastructure.GeneratedRouteInfo(");
-            sb.AppendLine($"            \"{EscapeString(cls.Route)}\",");
-            sb.AppendLine($"            {descriptionArg},");
-
-            if (cls.Properties.Any())
-            {
-                sb.AppendLine("            [");
-                var properties = cls.Properties.ToList();
-                for (int j = 0; j < properties.Count; j++)
-                {
-                    var p = properties[j];
-                    var requiredLiteral = p.IsRequired ? "true" : "false";
-                    sb.Append($"                new global::Shiny.Infrastructure.GeneratedRouteParameter(");
-                    sb.Append($"\"{EscapeString(p.Name)}\", \"{GetParameterDescription(p)}\", \"{EscapeString(GetParameterTypeName(p))}\", {requiredLiteral})");
-                    if (j < properties.Count - 1)
-                        sb.Append(",");
-                    sb.AppendLine();
-                }
-                sb.Append("            ]");
-            }
-            else
-            {
-                sb.Append("            []");
-            }
-
-            sb.Append(")");
+            AppendGeneratedRouteInfo(sb, classes[i], "        ");
             if (i < classes.Length - 1)
                 sb.Append(",");
             sb.AppendLine();
@@ -1166,6 +1145,45 @@ public class ShinyShellGenerator : IIncrementalGenerator
         sb.AppendLine("}");
 
         context.AddSource("AiExtensions.g.cs", sb.ToString());
+    }
+
+    /// <summary>
+    /// Writes a <c>GeneratedRouteInfo</c> constructor expression for one map, starting at
+    /// <paramref name="indent"/> and ending at its closing parenthesis. Shared by
+    /// <c>GetGeneratedRouteInfo()</c> and <c>AddGeneratedMaps()</c> so the two never disagree.
+    /// </summary>
+    static void AppendGeneratedRouteInfo(StringBuilder sb, ShellMapInfo cls, string indent)
+    {
+        var descriptionArg = cls.Description != null
+            ? $"\"{EscapeString(cls.Description)}\""
+            : "\"\"";
+
+        sb.AppendLine($"{indent}new global::Shiny.Infrastructure.GeneratedRouteInfo(");
+        sb.AppendLine($"{indent}    \"{EscapeString(cls.Route)}\",");
+        sb.AppendLine($"{indent}    {descriptionArg},");
+
+        if (cls.Properties.Any())
+        {
+            sb.AppendLine($"{indent}    [");
+            var properties = cls.Properties.ToList();
+            for (int j = 0; j < properties.Count; j++)
+            {
+                var p = properties[j];
+                var requiredLiteral = p.IsRequired ? "true" : "false";
+                sb.Append($"{indent}        new global::Shiny.Infrastructure.GeneratedRouteParameter(");
+                sb.Append($"\"{EscapeString(p.Name)}\", \"{GetParameterDescription(p)}\", \"{EscapeString(GetParameterTypeName(p))}\", {requiredLiteral})");
+                if (j < properties.Count - 1)
+                    sb.Append(",");
+                sb.AppendLine();
+            }
+            sb.Append($"{indent}    ]");
+        }
+        else
+        {
+            sb.Append($"{indent}    []");
+        }
+
+        sb.Append(")");
     }
 
     static void GenerateAiMauiShellToolsClass(StringBuilder sb, System.Collections.Generic.List<ShellMapInfo> aiClasses, GeneratorOptions options)
