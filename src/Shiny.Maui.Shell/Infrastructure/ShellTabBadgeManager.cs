@@ -8,6 +8,34 @@ public sealed class ShellTabBadgeManager(
 )
 {
     readonly Dictionary<string, int> badgeValues = new(StringComparer.Ordinal);
+    readonly Lock sync = new();
+
+
+    /// <summary>
+    /// The badges currently set, keyed by tab route (the last segment of the route passed to
+    /// <see cref="Set"/>). A snapshot - safe to read from any thread.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> Values
+    {
+        get
+        {
+            lock (this.sync)
+                return new Dictionary<string, int>(this.badgeValues, StringComparer.Ordinal);
+        }
+    }
+
+
+    /// <summary>
+    /// The badge value on a tab, or null when it has none. Accepts the same routes as
+    /// <see cref="Set"/> - a route name or a full route, of which the last segment is the tab.
+    /// </summary>
+    public int? Get(string route)
+    {
+        var normalizedRoute = NormalizeRoute(route);
+        lock (this.sync)
+            return this.badgeValues.TryGetValue(normalizedRoute, out var value) ? value : null;
+    }
+
 
     public Task Set(string route, int value)
     {
@@ -20,7 +48,8 @@ public sealed class ShellTabBadgeManager(
             var target = this.ResolveTarget(normalizedRoute);
 
             ShellTabBadgePlatform.Set(target.Index, value);
-            this.badgeValues[normalizedRoute] = value;
+            lock (this.sync)
+                this.badgeValues[normalizedRoute] = value;
         });
     }
 
@@ -31,16 +60,18 @@ public sealed class ShellTabBadgeManager(
         var target = this.ResolveTarget(normalizedRoute);
 
         ShellTabBadgePlatform.Clear(target.Index);
-        this.badgeValues.Remove(normalizedRoute);
+        lock (this.sync)
+            this.badgeValues.Remove(normalizedRoute);
     });
 
 
     public void ReapplyAll()
     {
-        if (this.badgeValues.Count == 0)
+        var badges = this.Values;
+        if (badges.Count == 0)
             return;
 
-        foreach (var badge in this.badgeValues)
+        foreach (var badge in badges)
         {
             if (!this.TryResolveTarget(badge.Key, out var target))
                 continue;
