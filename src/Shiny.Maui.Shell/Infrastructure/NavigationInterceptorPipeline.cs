@@ -23,7 +23,14 @@ public sealed record NavigationInterception(
     Type? ViewModelType,
     bool IsRedirected,
     bool IsViewModelResolved
-);
+)
+{
+    /// <summary>The interceptor that cancelled, when <see cref="IsCancelled"/> is true.</summary>
+    public INavigationInterceptor? CancelledBy { get; init; }
+
+    /// <summary>Every redirect the chain made, in order. Empty when <see cref="IsRedirected"/> is false.</summary>
+    public IReadOnlyList<NavigationRedirect> Redirects { get; init; } = Array.Empty<NavigationRedirect>();
+}
 
 
 /// <summary>
@@ -100,6 +107,7 @@ public class NavigationInterceptorPipeline(
         var vm = viewModel;
         var vmType = viewModelType;
         var resolved = false;
+        List<NavigationRedirect>? redirectChain = null;
 
         if (vm == null && resolveViewModel)
             (vm, vmType, resolved) = this.ResolveTarget(currentUri);
@@ -133,7 +141,11 @@ public class NavigationInterceptorPipeline(
                             interceptor.GetType().Name,
                             currentUri
                         );
-                        return new NavigationInterception(true, currentUri, vm, vmType, redirects > 0, resolved);
+                        return new NavigationInterception(true, currentUri, vm, vmType, redirects > 0, resolved)
+                        {
+                            CancelledBy = interceptor,
+                            Redirects = (IReadOnlyList<NavigationRedirect>?)redirectChain ?? Array.Empty<NavigationRedirect>()
+                        };
                     }
 
                     var target = this.GetRedirect(result, interceptor);
@@ -159,13 +171,19 @@ public class NavigationInterceptorPipeline(
                         currentUri,
                         target
                     );
+                    (redirectChain ??= new()).Add(new NavigationRedirect(currentUri, target, interceptor));
                     redirectTo = target;
                     break;
                 }
             }
 
             if (redirectTo == null)
-                return new NavigationInterception(false, currentUri, vm, vmType, redirects > 0, resolved);
+            {
+                return new NavigationInterception(false, currentUri, vm, vmType, redirects > 0, resolved)
+                {
+                    Redirects = (IReadOnlyList<NavigationRedirect>?)redirectChain ?? Array.Empty<NavigationRedirect>()
+                };
+            }
 
             // The original destination is abandoned - its ViewModel is dropped rather than bound,
             // and the chain restarts so the new destination is guarded just as thoroughly.

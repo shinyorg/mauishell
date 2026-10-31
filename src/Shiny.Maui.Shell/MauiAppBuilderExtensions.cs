@@ -34,6 +34,7 @@ public static class MauiAppBuilderExtensions
                     sp => sp.GetRequiredService<NavigationContextAccessor>()
                 );
                 builder.Services.AddSingleton<NavigationInterceptorPipeline>();
+                builder.Services.AddSingleton<NavigationObservers>();
 
                 builder.Services.AddSingleton<ShellServices>();
                 builder.Services.AddSingleton<ShinyShellNavigator>();

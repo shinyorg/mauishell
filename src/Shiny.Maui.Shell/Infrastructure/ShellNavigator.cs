@@ -9,7 +9,8 @@ public class ShinyShellNavigator(
     ShinyAppBuilder navBuilder,
     ShellTabBadgeManager tabBadgeManager,
     ShellNavigationConfigurator configurator,
-    NavigationInterceptorPipeline interceptors
+    NavigationInterceptorPipeline interceptors,
+    NavigationObservers observers
 ) : INavigator, IMauiInitializeService, IDisposable
 {
     public event EventHandler<NavigationEventArgs>? Navigating;
@@ -145,6 +146,9 @@ public class ShinyShellNavigator(
 
         /// <summary>Handed to the interceptors.</summary>
         public CancellationToken CancellationToken { get; init; }
+
+        /// <summary>Who asked - reported to <see cref="INavigationObserver"/>s.</summary>
+        public NavigationSource Source { get; init; } = NavigationSource.Navigator;
     }
 
     internal readonly record struct PinnedViewModel(Type Type, object Instance);
@@ -160,6 +164,21 @@ public class ShinyShellNavigator(
     /// </summary>
     async Task<bool> RunNavigationCore(NavigationRequest request)
     {
+        var observed = this.StartObserving(request.Source, request.NavigationType, request.Uri, request.Parameters);
+        try
+        {
+            return await this.RunNavigationCore(request, observed).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            observers.Finish(observed, NavigationOutcome.Failed, request.Uri, exception: ex);
+            throw;
+        }
+    }
+
+
+    async Task<bool> RunNavigationCore(NavigationRequest request, NavigationStarted? observed)
+    {
         if (request.BypassInterceptors)
         {
             logger.LogDebug("[Navigation] '{uri}' is bypassing the interceptors", request.Uri);
@@ -167,6 +186,7 @@ public class ShinyShellNavigator(
                 .ExecuteNavigation(request.Uri, request.NavigationType, request.Parameters, request.Pins, request.AllowLinuxDirectPush)
                 .ConfigureAwait(true);
 
+            observers.Finish(observed, NavigationOutcome.Completed, request.Uri);
             return true;
         }
 
@@ -187,6 +207,13 @@ public class ShinyShellNavigator(
             // Cancelling is a decision, not a failure - the caller's task completes normally with
             // false, and any ViewModel resolved for the abandoned destination is never pinned.
             logger.LogDebug("[Navigation] '{uri}' was cancelled by an interceptor", request.Uri);
+            observers.Finish(
+                observed,
+                NavigationOutcome.Cancelled,
+                interception.Uri,
+                interception.Redirects,
+                interception.CancelledBy
+            );
             return false;
         }
 
@@ -213,7 +240,39 @@ public class ShinyShellNavigator(
         }
 
         await this.ExecuteNavigation(uri, navType, request.Parameters, pins, request.AllowLinuxDirectPush).ConfigureAwait(true);
+        observers.Finish(
+            observed,
+            interception.IsRedirected ? NavigationOutcome.Redirected : NavigationOutcome.Completed,
+            uri,
+            interception.Redirects
+        );
         return true;
+    }
+
+
+    /// <summary>
+    /// Reports a navigation starting to the observers, reading where the user is from Shell. Does
+    /// not touch Shell at all when nobody is observing.
+    /// </summary>
+    NavigationStarted? StartObserving(
+        NavigationSource source,
+        NavigationType navigationType,
+        string uri,
+        IReadOnlyDictionary<string, object> parameters
+    )
+    {
+        if (!observers.HasObservers)
+            return null;
+
+        var shell = Shell.Current;
+        return observers.Start(
+            source,
+            navigationType,
+            uri,
+            parameters,
+            shell?.CurrentState?.Location?.ToString(),
+            shell?.CurrentPage?.BindingContext
+        );
     }
 
 
@@ -378,7 +437,8 @@ public class ShinyShellNavigator(
     /// <param name="viewModelType">The ViewModel type to pin for the apply sites.</param>
     /// <param name="viewModel">The populated ViewModel instance.</param>
     /// <param name="route">An absolute ("//"-prefixed) or relative route.</param>
-    internal Task<bool> NavigateToAppLink(Type viewModelType, object viewModel, string route)
+    /// <param name="source">App link or shortcut, for the observers.</param>
+    internal Task<bool> NavigateToAppLink(Type viewModelType, object viewModel, string route, NavigationSource source)
         => this.RunNavigation(new NavigationRequest(
             route,
             NavigationUri.GetNavigationType(route),
@@ -387,7 +447,8 @@ public class ShinyShellNavigator(
         {
             Pins = [new PinnedViewModel(viewModelType, viewModel)],
             ViewModel = viewModel,
-            ViewModelType = viewModelType
+            ViewModelType = viewModelType,
+            Source = source
         });
 
 
@@ -515,7 +576,22 @@ public class ShinyShellNavigator(
 
         var currentShell = Shell.Current;
         var parameters = new Dictionary<string, object>();
+        var observed = this.StartObserving(NavigationSource.Navigator, NavigationType.SwitchShell, shell.GetType().Name, parameters);
+        try
+        {
+            await this.DoSwitchShell(app, currentShell, shell, parameters).ConfigureAwait(false);
+            observers.Finish(observed, NavigationOutcome.Completed, shell.GetType().Name);
+        }
+        catch (Exception ex)
+        {
+            observers.Finish(observed, NavigationOutcome.Failed, shell.GetType().Name, exception: ex);
+            throw;
+        }
+    }
 
+
+    async Task DoSwitchShell(Application app, Shell? currentShell, Shell shell, Dictionary<string, object> parameters)
+    {
         if (currentShell?.CurrentPage?.BindingContext is INavigationAware navAware)
             navAware.OnNavigatingFrom(parameters);
 
@@ -637,6 +713,8 @@ public class ShinyShellNavigator(
             // a doubled handler would ask every guard twice.
             shell.Navigating -= this.OnShellNavigating;
             shell.Navigating += this.OnShellNavigating;
+            shell.Navigated -= this.OnShellNavigated;
+            shell.Navigated += this.OnShellNavigated;
         }
     }
 
@@ -658,30 +736,49 @@ public class ShinyShellNavigator(
             return;
 
         var vm = shell.CurrentPage?.BindingContext;
+        var targetUri = shellArgs.Target?.Location?.ToString();
+        var navType = ToNavigationType(shellArgs.Source);
+
+        // Reported before anything decides, and without a deferral - observing must not change
+        // how an app without interceptors navigates.
+        var observed = observers.HasObservers
+            ? observers.StartShell(
+                navType,
+                targetUri ?? String.Empty,
+                shellArgs.Current?.Location?.ToString(),
+                vm,
+                shellArgs.Source
+            )
+            : null;
+
         var hasInterceptors = interceptors.HasInterceptors;
         if (vm is not INavigationConfirmation && !hasInterceptors)
+        {
+            this.WatchForShellCancellation(shell, shellArgs, observed);
             return;
+        }
 
         // Anything awaited past this point needs the deferral, or Shell completes the navigation
         // underneath us.
         var deferral = shellArgs.GetDeferral();
         NavigationRequest? redirect = null;
+        IReadOnlyList<NavigationRedirect> redirects = [];
         try
         {
             if (vm is INavigationConfirmation confirm && !await confirm.CanNavigate())
             {
                 shellArgs.Cancel();
+                observers.Finish(observed, NavigationOutcome.Cancelled, targetUri ?? String.Empty, cancelledBy: confirm);
                 return;
             }
 
             if (!hasInterceptors)
                 return;
 
-            var uri = shellArgs.Target?.Location?.ToString();
+            var uri = targetUri;
             if (String.IsNullOrWhiteSpace(uri))
                 return;
 
-            var navType = ToNavigationType(shellArgs.Source);
             var parameters = new Dictionary<string, object>();
 
             // ResolveViewModel is false here: Shell is building this destination itself, so
@@ -693,13 +790,23 @@ public class ShinyShellNavigator(
             if (interception.IsCancelled)
             {
                 shellArgs.Cancel();
+                observers.Finish(
+                    observed,
+                    NavigationOutcome.Cancelled,
+                    interception.Uri,
+                    interception.Redirects,
+                    interception.CancelledBy
+                );
                 return;
             }
 
             if (interception.IsRedirected)
             {
                 // Shell's own navigation is abandoned and reissued as ours, which is what lets the
-                // redirect target get a pinned, interceptor-visible ViewModel.
+                // redirect target get a pinned, interceptor-visible ViewModel. The observers hear
+                // about it once the reissued navigation lands, not when Shell's is cancelled.
+                observers.ReleaseShell(observed);
+                redirects = interception.Redirects;
                 shellArgs.Cancel();
                 redirect = new NavigationRequest(
                     interception.Uri,
@@ -719,10 +826,16 @@ public class ShinyShellNavigator(
             // report to on this path - Shell raised the event.
             logger.LogError(ex, "[Navigation] Interception of '{uri}' failed - navigation cancelled", shellArgs.Target?.Location);
             shellArgs.Cancel();
+            observers.Finish(observed, NavigationOutcome.Failed, targetUri ?? String.Empty, exception: ex);
         }
         finally
         {
             deferral.Complete();
+
+            // Every exit but a redirect leaves Shell to finish the navigation - including the early
+            // returns above, which is why this is here and not after the block. Harmless when the
+            // navigation was already finished or handed over: ShellCancelled ignores it then.
+            this.WatchForShellCancellation(shell, shellArgs, observed);
         }
 
         if (redirect == null)
@@ -737,12 +850,40 @@ public class ShinyShellNavigator(
             try
             {
                 await this.ExecuteNavigation(redirect.Uri, redirect.NavigationType, redirect.Parameters, redirect.Pins, false);
+                observers.Finish(observed, NavigationOutcome.Redirected, redirect.Uri, redirects);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "[Navigation] Redirect to '{uri}' failed", redirect.Uri);
+                observers.Finish(observed, NavigationOutcome.Failed, redirect.Uri, redirects, exception: ex);
             }
         });
+    }
+
+
+    /// <summary>
+    /// A Shell-driven navigation Shiny let through can still be cancelled by Shell or by another
+    /// <see cref="Shell.Navigating"/> handler, and Shell raises nothing when that happens. Checking
+    /// on the next dispatcher turn catches every synchronous cancel; a deferred one is caught when
+    /// the next Shell-driven navigation starts (see <see cref="NavigationObservers.StartShell"/>).
+    /// </summary>
+    void WatchForShellCancellation(Shell shell, ShellNavigatingEventArgs args, NavigationStarted? observed)
+    {
+        if (observed == null)
+            return;
+
+        shell.Dispatcher?.Dispatch(() =>
+        {
+            if (args.Cancelled)
+                observers.ShellCancelled(observed);
+        });
+    }
+
+
+    void OnShellNavigated(object? sender, ShellNavigatedEventArgs args)
+    {
+        if (observers.HasObservers)
+            observers.ShellNavigated(args.Current?.Location?.ToString());
     }
 
 

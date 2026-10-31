@@ -133,7 +133,7 @@ public class AppLinkRouter(
                 logger.LogInformation("[AppLink] '{uri}' -> '{route}'", uri, route);
 
                 var navigated = await navigator
-                    .NavigateToAppLink(link.ViewModelType, vm, route)
+                    .NavigateToAppLink(link.ViewModelType, vm, route, NavigationSource.AppLink)
                     .ConfigureAwait(false);
 
                 if (navigated)

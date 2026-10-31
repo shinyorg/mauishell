@@ -119,6 +119,34 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
 
 
     /// <summary>
+    /// Registers a navigation observer, which is told when every navigation starts and how it
+    /// finished - <see cref="INavigator"/> calls, app links, shortcuts, and navigation Shell starts
+    /// itself (tabs, flyout, back). Observers cannot change a navigation, and registering one does
+    /// not turn on the interceptor pipeline.
+    /// </summary>
+    /// <typeparam name="TObserver">The observer. Registered as a singleton; register it yourself for any other lifetime.</typeparam>
+    public ShinyAppBuilder AddNavigationObserver<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TObserver
+    >() where TObserver : class, INavigationObserver
+    {
+        builder.Services.AddSingleton<INavigationObserver, TObserver>();
+        return this;
+    }
+
+
+    /// <summary>
+    /// Registers an already-constructed navigation observer.
+    /// </summary>
+    public ShinyAppBuilder AddNavigationObserver(INavigationObserver observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+
+        builder.Services.AddSingleton(observer);
+        return this;
+    }
+
+
+    /// <summary>
     /// Optional tuning for inbound app links. App links declared through the <c>appLinks</c>
     /// argument of <see cref="ShellMapAttribute{TPage}"/> are installed automatically by
     /// <c>AddGeneratedMaps()</c> - this is only needed to change the defaults.

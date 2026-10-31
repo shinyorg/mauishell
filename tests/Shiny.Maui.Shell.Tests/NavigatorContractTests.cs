@@ -246,4 +246,73 @@ public class NavigatorContractTests
             "bypasses INavigationInterceptor."
         );
     }
+
+
+    [Fact]
+    public void ShellNavigating_ObservingNeverTakesADeferral()
+    {
+        var source = ReadInfrastructureSource("ShellNavigator.cs");
+        var handler = source.Substring(source.IndexOf("async void OnShellNavigating(", StringComparison.Ordinal));
+        handler = handler.Substring(0, handler.IndexOf("\n    }\n", StringComparison.Ordinal));
+
+        var start = handler.IndexOf("observers.StartShell(", StringComparison.Ordinal);
+        var bail = handler.IndexOf("if (vm is not INavigationConfirmation && !hasInterceptors)", StringComparison.Ordinal);
+        var deferral = handler.IndexOf("GetDeferral()", StringComparison.Ordinal);
+
+        start.ShouldBeGreaterThan(-1,
+            customMessage: "Shell-driven navigation (tabs, flyout, back) must be reported to INavigationObservers."
+        );
+        bail.ShouldBeGreaterThan(-1,
+            customMessage:
+            "The early return for an app with no INavigationConfirmation and no interceptors must stay - " +
+            "observers must not make Shiny take a Shell deferral."
+        );
+        start.ShouldBeLessThan(bail,
+            customMessage: "The navigation is reported before the early return, so observers see it even when nothing intercepts."
+        );
+        bail.ShouldBeLessThan(deferral,
+            customMessage: "No deferral may be taken before the early return - observing must not change how Shell navigates."
+        );
+    }
+
+
+    [Fact]
+    public void ShellNavigated_FinishesShellDrivenNavigation()
+    {
+        var source = ReadInfrastructureSource("ShellNavigator.cs");
+
+        source.ShouldContain("shell.Navigated += this.OnShellNavigated",
+            customMessage:
+            "A Shell-driven navigation Shiny lets through is only known to have completed when Shell raises " +
+            "Navigated - without the subscription, observers would never hear that a tab tap landed."
+        );
+        source.ShouldContain("observers.ShellNavigated(");
+    }
+
+
+    [Fact]
+    public void Navigator_ReportsEveryProgrammaticOutcome()
+    {
+        var source = ReadInfrastructureSource("ShellNavigator.cs");
+        var core = source.Substring(source.IndexOf("async Task<bool> RunNavigationCore(NavigationRequest request, NavigationStarted? observed)", StringComparison.Ordinal));
+        core = core.Substring(0, core.IndexOf("\n    }\n", StringComparison.Ordinal));
+
+        core.ShouldContain("NavigationOutcome.Cancelled");
+        core.ShouldContain("NavigationOutcome.Redirected");
+        core.ShouldContain("NavigationOutcome.Completed");
+        core.ShouldContain("interception.CancelledBy",
+            customMessage: "Observers are told which interceptor cancelled."
+        );
+
+        // Failure is reported by the wrapper, so every throw - interceptor, Shell, token - is covered.
+        source.ShouldContain("observers.Finish(observed, NavigationOutcome.Failed, request.Uri, exception: ex);");
+    }
+
+
+    [Fact]
+    public void AppLinksAndShortcuts_IdentifyThemselvesToObservers()
+    {
+        ReadInfrastructureSource("AppLinkRouter.cs").ShouldContain("NavigationSource.AppLink");
+        ReadInfrastructureSource("AppShortcutRouter.cs").ShouldContain("NavigationSource.Shortcut");
+    }
 }

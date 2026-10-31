@@ -78,7 +78,7 @@ public class AppShortcutRouter(
             logger.LogInformation("[Shortcut] '{id}' -> '{route}'", id, route);
 
             var navigated = await navigator
-                .NavigateToAppLink(shortcut.ViewModelType, vm, route)
+                .NavigateToAppLink(shortcut.ViewModelType, vm, route, NavigationSource.Shortcut)
                 .ConfigureAwait(false);
 
             if (!navigated)

@@ -442,4 +442,82 @@ public class NavigationInterceptorPipelineTests
 
         directions.ShouldBe([NavigationDirection.Forward, NavigationDirection.Back, NavigationDirection.Root]);
     }
+
+
+    [Fact]
+    public async Task Cancel_ReportsWhichInterceptorCancelled()
+    {
+        var blocker = new TestInterceptor("blocker", (_, _) => NavigationInterceptorResult.Cancel());
+        var pipeline = Build([
+            new TestInterceptor("first", (_, _) => NavigationInterceptorResult.Continue),
+            blocker
+        ]);
+
+        var result = await Run(pipeline);
+
+        result.CancelledBy.ShouldBeSameAs(blocker);
+        result.Redirects.ShouldBeEmpty();
+    }
+
+
+    [Fact]
+    public async Task Continue_HasNoCancellerAndNoRedirects()
+    {
+        var pipeline = Build([new TestInterceptor("ok", (_, _) => NavigationInterceptorResult.Continue)]);
+
+        var result = await Run(pipeline);
+
+        result.CancelledBy.ShouldBeNull();
+        result.Redirects.ShouldBeEmpty();
+    }
+
+
+    [Fact]
+    public async Task Redirects_AreReportedInOrderWithTheInterceptorThatMadeEach()
+    {
+        var toLogin = new TestInterceptor("toLogin", (uri, _) => uri == "detail"
+            ? NavigationInterceptorResult.Redirect("//login")
+            : NavigationInterceptorResult.Continue);
+        var toHome = new TestInterceptor("toHome", (uri, _) => uri == "//login"
+            ? NavigationInterceptorResult.Redirect("//home")
+            : NavigationInterceptorResult.Continue);
+        var pipeline = Build([toLogin, toHome]);
+
+        var result = await Run(pipeline, "detail");
+
+        result.Uri.ShouldBe("//home");
+        result.Redirects.Count.ShouldBe(2);
+        result.Redirects[0].ShouldBe(new NavigationRedirect("detail", "//login", toLogin));
+        result.Redirects[1].ShouldBe(new NavigationRedirect("//login", "//home", toHome));
+    }
+
+
+    [Fact]
+    public async Task RedirectThenCancel_KeepsTheChainAndTheCanceller()
+    {
+        var redirector = new TestInterceptor("guard", (uri, _) => uri == "detail"
+            ? NavigationInterceptorResult.Redirect("//login")
+            : NavigationInterceptorResult.Continue);
+        var blocker = new TestInterceptor("nologin", (uri, _) => uri == "//login"
+            ? NavigationInterceptorResult.Cancel()
+            : NavigationInterceptorResult.Continue);
+        var pipeline = Build([redirector, blocker]);
+
+        var result = await Run(pipeline, "detail");
+
+        result.IsCancelled.ShouldBeTrue();
+        result.CancelledBy.ShouldBeSameAs(blocker);
+        result.Redirects.Single().Interceptor.ShouldBeSameAs(redirector);
+    }
+
+
+    [Fact]
+    public async Task IgnoredSelfRedirect_IsNotReportedAsARedirect()
+    {
+        var pipeline = Build([
+            new TestInterceptor("guard", (_, _) => NavigationInterceptorResult.Redirect("//login"))
+        ]);
+
+        (await Run(pipeline, "//login")).Redirects.ShouldBeEmpty();
+    }
 }
