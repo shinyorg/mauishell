@@ -69,6 +69,9 @@ For anything richer than the four primitives above, present one of your own page
 
 `NavigationType`: `Push` · `SetRoot` · `GoBack` · `PopToRoot` · `SwitchShell`
 
+For every navigation - tabs, flyout and back button included - with its outcome, see
+[Observing Navigation, Routes and Dialogs](#observing-navigation-routes-and-dialogs).
+
 ### ♻️ ViewModel Lifecycle
 
 | Interface | Method | Purpose |
@@ -561,6 +564,104 @@ public class NavigationLogger(
 builder.Services.AddSingleton<IMauiInitializeService, NavigationLogger>();
 ```
 
+`Navigating` and `Navigated` fire for navigation Shiny performs. To see **everything** - including
+the tab taps, flyout items and back button Shell handles itself, app links and shortcuts - and how
+each navigation ended, use a navigation observer.
+
+---
+
+## Observing Navigation, Routes and Dialogs
+
+These hooks are for analytics, diagnostics, test harnesses and developer tools. None of them can
+change what the app does, and registering one does not switch anything else on.
+
+### `INavigationObserver` - every navigation, start to finish
+
+```csharp
+public class NavigationAnalytics(ILogger<NavigationAnalytics> logger) : INavigationObserver
+{
+    public void OnNavigationStarted(NavigationStarted nav)
+        => logger.LogInformation("#{Id} {Source} {Type} '{From}' -> '{To}'",
+            nav.Id, nav.Source, nav.NavigationType, nav.FromUri, nav.Uri);
+
+    public void OnNavigationFinished(NavigationFinished result)
+        => logger.LogInformation("#{Id} {Outcome} at '{Uri}' in {Ms}ms (cancelled by {By}, {Redirects} redirect(s))",
+            result.Navigation.Id, result.Outcome, result.Uri, result.Duration.TotalMilliseconds,
+            result.CancelledBy?.GetType().Name, result.Redirects.Count);
+}
+
+builder.UseShinyShell(x => x
+    .AddGeneratedMaps()
+    .AddNavigationObserver<NavigationAnalytics>()
+);
+// or, from a library that does not own UseShinyShell:
+// builder.Services.AddSingleton<INavigationObserver, NavigationAnalytics>();
+```
+
+| | |
+|:--|:--|
+| `NavigationStarted.Source` | `Navigator` · `Shell` (tab, flyout, back - `ShellSource` says which) · `AppLink` · `Shortcut` |
+| `NavigationFinished.Outcome` | `Completed` · `Cancelled` · `Redirected` · `Failed` |
+| `CancelledBy` | The `INavigationInterceptor` that cancelled, or the `INavigationConfirmation` ViewModel that refused. Null when Shell, or a handler outside Shiny, cancelled a Shell-driven navigation |
+| `Redirects` | Every redirect, in order, with the interceptor that made it |
+| `Exception` | For `Failed` - a throwing interceptor, a route Shell rejected, or the caller's `CancellationToken` (`OperationCanceledException`) |
+
+Every `OnNavigationStarted` is followed by exactly one `OnNavigationFinished` with the same
+`NavigationStarted`. Unlike an interceptor, an observer never makes Shiny take a Shell deferral or
+resolve a ViewModel early - an app with no interceptors navigates exactly as it did. Callbacks run
+synchronously, usually on the main thread, and an observer that throws is logged and ignored.
+
+A Shell-driven navigation that Shiny lets through finishes when Shell raises `Navigated`. If Shell,
+or another `Shell.Navigating` handler, cancels it, it is reported `Cancelled` on the next dispatcher
+turn (or, for a deferred cancel, when the next Shell-driven navigation starts).
+
+### `IRouteRegistry` - where the app can go
+
+```csharp
+public class RouteDump(IRouteRegistry routes, ILogger<RouteDump> logger)
+{
+    public void Log()
+    {
+        foreach (var route in routes.Routes)
+            logger.LogInformation("{Route}: {Page} / {ViewModel} - {Description} ({Params})",
+                route.Route, route.PageType.Name, route.ViewModelType.Name, route.Description,
+                route.Parameters == null ? "unknown" : String.Join(", ", route.Parameters.Select(p => $"{p.TypeName} {p.ParameterName}")));
+    }
+}
+```
+
+`AddGeneratedMaps()` describes every `[ShellMap]` route - description and `[ShellProperty]`
+parameters - with no need for the AI extensions. Routes mapped by hand with `Add<TPage, TViewModel>()`
+report `Parameters` as null (unknown) unless described with `ShinyAppBuilder.AddRouteInfo(...)`.
+
+### `IDialogObserver` - ViewModel dialogs, and answering them
+
+```csharp
+public class AutoAnswer : IDialogObserver
+{
+    public void OnDialogShown(PresentedDialog dialog)
+    {
+        if (dialog.ViewModel is PickColorViewModel)
+            dialog.TryComplete("red");          // the ShowDialog caller receives "red"
+    }
+
+    public void OnDialogClosed(PresentedDialog dialog, DialogClosed result)
+        => Console.WriteLine($"{dialog.ViewModelType.Name}: {(result.IsCancelled ? "cancelled" : result.Value)}");
+}
+
+builder.UseShinyShell(x => x.AddDialogObserver<AutoAnswer>());
+```
+
+`TryComplete(value)` and `TryCancel()` close the dialog exactly as the ViewModel raising
+`Completed` / `Cancelled` would - the first result wins, and a value of the wrong type throws.
+`DialogObservers.Open` (in DI) lists the dialogs currently open. Only `ShowDialog` dialogs are
+reported; `IDialogs` alerts belong to whichever `IDialogs` implementation is registered.
+
+### Tab badge values
+
+`ShellTabBadgeManager` (in DI) reads back what `SetTabBadge` set: `Values` is a snapshot keyed by
+tab route, and `Get("inbox")` returns one badge or null.
+
 ---
 
 ## Navigation Interceptors
@@ -781,6 +882,8 @@ actually answer.
   `INavigator` calls, app links and shortcuts do not consult it. Asked before the interceptors, and
   unaffected by `bypassInterceptors`, which is about the interceptor chain only.
 - **`Navigating` / `Navigated` events** - observation only, they cannot change the outcome.
+- **`INavigationObserver`** - observation only, sees every navigation (Shell-driven included) and
+  how it ended - including which interceptor cancelled or redirected it.
 
 ---
 

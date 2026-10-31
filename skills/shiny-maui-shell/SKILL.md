@@ -28,6 +28,23 @@ triggers:
   - custom url scheme
   - url scheme
   - IAppLinks
+  - INavigationObserver
+  - AddNavigationObserver
+  - NavigationStarted
+  - NavigationFinished
+  - NavigationOutcome
+  - NavigationSource
+  - observe navigation
+  - navigation analytics
+  - IRouteRegistry
+  - RouteRegistration
+  - AddRouteInfo
+  - list routes
+  - IDialogObserver
+  - AddDialogObserver
+  - PresentedDialog
+  - DialogClosed
+  - ShellTabBadgeManager
   - UseAppLinks
   - AppLinkOptions
   - AppLinkRegistry
@@ -378,6 +395,32 @@ navigator.Navigated += (sender, args) =>
 ```
 
 Hook these events in an `IMauiInitializeService` for cross-cutting concerns like logging or analytics.
+
+**They only fire for navigation Shiny performs.** To observe *every* navigation - including tab taps,
+flyout items and the back button Shell handles itself, app links and shortcuts - and how each one
+ended, implement `INavigationObserver` instead. Never add an always-continue interceptor just to
+watch navigation: it switches on the interceptor pipeline (a Shell deferral, an early ViewModel
+resolve) and still cannot see the outcome.
+
+```csharp
+public class NavigationAnalytics : INavigationObserver
+{
+    public void OnNavigationStarted(NavigationStarted nav) { /* nav.Id, Source, NavigationType, Uri, FromUri, FromViewModel, Parameters, ShellSource */ }
+    public void OnNavigationFinished(NavigationFinished r) { /* r.Navigation, Outcome (Completed|Cancelled|Redirected|Failed), Uri, Redirects, CancelledBy, Exception, Duration */ }
+}
+
+builder.UseShinyShell(x => x.AddGeneratedMaps().AddNavigationObserver<NavigationAnalytics>());
+// a library: builder.Services.AddSingleton<INavigationObserver, NavigationAnalytics>();
+```
+
+Related observation hooks (all resolve from DI):
+- `IRouteRegistry.Routes` - every mapped route with `PageType`, `ViewModelType`, `IsRegisteredWithShell`,
+  `Description` and `Parameters` (`[ShellProperty]`s; null for hand-mapped routes). `AddGeneratedMaps()`
+  emits `builder.AddRouteInfo(...)` for each `[ShellMap]` - no AI extensions needed.
+- `IDialogObserver` (`AddDialogObserver<T>()`) - `OnDialogShown(PresentedDialog)` /
+  `OnDialogClosed(PresentedDialog, DialogClosed)` for `ShowDialog` dialogs. `PresentedDialog.TryComplete(value)`
+  and `TryCancel()` answer a dialog from code (tests, automation). `DialogObservers.Open` lists open dialogs.
+- `ShellTabBadgeManager.Values` / `Get(route)` - read back badge values.
 
 ### 4a. Navigation Interceptors (guards)
 
