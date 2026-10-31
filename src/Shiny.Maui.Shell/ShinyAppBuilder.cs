@@ -148,6 +148,32 @@ public sealed class ShinyAppBuilder(MauiAppBuilder builder)
 
 
     /// <summary>
+    /// Registers a dialog observer, which is told when each <see cref="INavigator.ShowDialog{TViewModel, T}"/>
+    /// dialog is presented and how it closed, and can close it programmatically.
+    /// </summary>
+    /// <typeparam name="TObserver">The observer. Registered as a singleton.</typeparam>
+    public ShinyAppBuilder AddDialogObserver<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TObserver
+    >() where TObserver : class, IDialogObserver
+    {
+        builder.Services.AddSingleton<IDialogObserver, TObserver>();
+        return this;
+    }
+
+
+    /// <summary>
+    /// Registers an already-constructed dialog observer.
+    /// </summary>
+    public ShinyAppBuilder AddDialogObserver(IDialogObserver observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+
+        builder.Services.AddSingleton(observer);
+        return this;
+    }
+
+
+    /// <summary>
     /// Optional tuning for inbound app links. App links declared through the <c>appLinks</c>
     /// argument of <see cref="ShellMapAttribute{TPage}"/> are installed automatically by
     /// <c>AddGeneratedMaps()</c> - this is only needed to change the defaults.

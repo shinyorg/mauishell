@@ -35,6 +35,7 @@ public static class MauiAppBuilderExtensions
                 );
                 builder.Services.AddSingleton<NavigationInterceptorPipeline>();
                 builder.Services.AddSingleton<NavigationObservers>();
+                builder.Services.AddSingleton<DialogObservers>();
                 builder.Services.AddSingleton<IRouteRegistry, RouteRegistry>();
 
                 builder.Services.AddSingleton<ShellServices>();

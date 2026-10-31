@@ -10,7 +10,8 @@ public class ShinyShellNavigator(
     ShellTabBadgeManager tabBadgeManager,
     ShellNavigationConfigurator configurator,
     NavigationInterceptorPipeline interceptors,
-    NavigationObservers observers
+    NavigationObservers observers,
+    DialogObservers dialogObservers
 ) : INavigator, IMauiInitializeService, IDisposable
 {
     public event EventHandler<NavigationEventArgs>? Navigating;
@@ -476,6 +477,7 @@ public class ShinyShellNavigator(
         // synchronously from OnAppearing before the presenter's push has been awaited - is captured.
         vm.Completed += OnCompleted;
         vm.Cancelled += OnCancelled;
+        PresentedDialog? observed = null;
         try
         {
             configure?.Invoke(vm);
@@ -496,7 +498,9 @@ public class ShinyShellNavigator(
             using var dismiss = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             logger.LogDebug("[Dialog] Presenting '{type}'", typeof(TViewModel));
+            observed = dialogObservers.Create(vm, page, completion);
             var presentation = presenter.Present(page, vm, dismiss.Token);
+            dialogObservers.Shown(observed);
             var finished = await Task.WhenAny(completion.Task, presentation).ConfigureAwait(false);
 
             if (finished == presentation)
@@ -521,7 +525,13 @@ public class ShinyShellNavigator(
 
             var result = await completion.Task.ConfigureAwait(false);
             logger.LogDebug("[Dialog] '{type}' closed (cancelled: {cancelled})", typeof(TViewModel), result.IsCancelled);
+            dialogObservers.Closed(observed, result.IsCancelled, result.Value);
             return result;
+        }
+        catch (Exception ex)
+        {
+            dialogObservers.Closed(observed, true, null, ex);
+            throw;
         }
         finally
         {

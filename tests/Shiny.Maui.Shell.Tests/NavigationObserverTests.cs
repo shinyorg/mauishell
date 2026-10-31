@@ -109,7 +109,8 @@ public class NavigationObserverTests
                 appBuilder,
                 new NavigationContextAccessor()
             ),
-            new NavigationObservers(NullLogger<NavigationObservers>.Instance, sp)
+            new NavigationObservers(NullLogger<NavigationObservers>.Instance, sp),
+            new DialogObservers(NullLogger<DialogObservers>.Instance, sp)
         );
         return (navigator, observer);
     }
