@@ -45,10 +45,19 @@ public sealed class Adb(string serial) : IAppDevice
         // The MainActivity name is a generated crc64 hash, so ask the package manager for it
         this.launchComponent ??= await this.ResolveLaunchComponent();
 
-        // -S stops a running instance first, -W waits until the activity has started
-        var r = await this.Device("shell", "am", "start", "-S", "-W", "-n", this.launchComponent);
-        if (!r.Ok || r.StdOut.Contains("Error", StringComparison.Ordinal))
-            throw new InvalidOperationException($"am start failed:\n{r.Combined}");
+        // -S stops a running instance first, -W waits until the activity has started. An IDE on
+        // the same machine can restart the adb server under us, which drops the device for a
+        // moment ("device offline") - wait it out once.
+        ProcResult r = null!;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            await this.Device("wait-for-device");
+            r = await this.Device("shell", "am", "start", "-S", "-W", "-n", this.launchComponent);
+            if (r.Ok && !r.StdOut.Contains("Error", StringComparison.Ordinal))
+                break;
+            if (attempt == 1 || !IsDeviceGone(r))
+                throw new InvalidOperationException($"am start failed:\n{r.Combined}");
+        }
 
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (DateTime.UtcNow < deadline)
@@ -75,7 +84,8 @@ public sealed class Adb(string serial) : IAppDevice
     /// </summary>
     public async Task<int> ConnectAgent(int pid)
     {
-        this.forwardedPort ??= await this.Forward();
+        // Every time, not once: a forward lives in the adb server and dies when it is restarted.
+        this.forwardedPort = await this.Forward(this.forwardedPort);
 
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
         while (DateTime.UtcNow < deadline)
@@ -97,14 +107,22 @@ public sealed class Adb(string serial) : IAppDevice
             "Is it a Debug build (the agent is only referenced in Debug)?");
     }
 
-    async Task<int> Forward()
+    async Task<int> Forward(int? hostPort)
     {
-        // tcp:0 lets adb pick a free host port and print it
-        var r = await this.Device("forward", "tcp:0", $"tcp:{AgentDevicePort}");
-        if (!r.Ok || !Int32.TryParse(r.StdOut.Trim(), out var port))
+        // The same host port as before when there is one (re-forwarding it is harmless); tcp:0 lets
+        // adb pick a free one and print it
+        var r = await this.Device("forward", $"tcp:{hostPort ?? 0}", $"tcp:{AgentDevicePort}");
+        if (!r.Ok)
             throw new InvalidOperationException($"adb forward failed:\n{r.Combined}");
+        if (hostPort is { } same)
+            return same;
+        if (!Int32.TryParse(r.StdOut.Trim().Split('\n').Last(), out var port))
+            throw new InvalidOperationException($"adb forward printed no port:\n{r.Combined}");
         return port;
     }
+
+    static bool IsDeviceGone(ProcResult r)
+        => r.Combined.Contains("offline", StringComparison.Ordinal) || r.Combined.Contains("not found", StringComparison.Ordinal);
 
     public async Task<int?> ProcessId()
     {

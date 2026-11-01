@@ -1,6 +1,6 @@
 # Sample UI tests
 
-End-to-end tests that drive the real **Sample** app on an iOS simulator through
+End-to-end tests that drive the real **Sample** app on an iOS simulator or an Android emulator through
 [MAUI DevFlow](https://www.nuget.org/packages/Microsoft.Maui.DevFlow.Agent): navigation, modals, the
 builder, XAML navigation, interceptors, lifecycle, every dialog provider/presenter that DevFlow can
 see, shell switching and tab badges.
@@ -9,7 +9,14 @@ see, shell switching and tab badges.
 tests/Sample.UITests/run-ios.sh                          # build + fresh install + run (~3.5 minutes after the build)
 tests/Sample.UITests/run-ios.sh --no-build               # reuse the last build
 tests/Sample.UITests/run-ios.sh --filter DialogTests     # any `dotnet test --filter` expression
+
+tests/Sample.UITests/run-android.sh                      # the same on Android (~3 minutes after the build)
+tests/Sample.UITests/run-android.sh --no-build
+tests/Sample.UITests/run-android.sh --filter DialogTests
 ```
+
+The same 59 tests run on both platforms. `SAMPLE_UITEST_PLATFORM` (`ios`, the default, or `android`) picks
+the device; `run-android.sh` sets it.
 
 `run-ios.sh`:
 
@@ -21,16 +28,24 @@ tests/Sample.UITests/run-ios.sh --filter DialogTests     # any `dotnet test --fi
 4. Uninstalls and reinstalls the app (a clean data container).
 5. Runs `dotnet test`. The fixture launches the app itself.
 
+`run-android.sh` does the same with the **dedicated** emulator `MauiShell-UITests` (Pixel 8, created from
+`system-images;android-35;google_apis;arm64-v8a` when missing) and builds into
+`tests/Sample.UITests/.app-build-android`. The Debug build gets `EmbedAssembliesIntoApk=true`: Debug normally
+leaves the assemblies out of the apk for fast deployment, and an apk installed with `adb` needs them.
+
 From an IDE or a plain `dotnet test`, the app has to be installed on the simulator already, or set
 `SAMPLE_UITEST_INSTALL=true` (reinstall the last build) or `SAMPLE_UITEST_BUILD=true` (build it too).
-`dotnet test MauiShell.slnx` includes this project, so it needs the simulator as well. CI builds
+Add `SAMPLE_UITEST_PLATFORM=android` for the emulator. `dotnet test MauiShell.slnx` includes this project,
+so it needs the simulator as well. CI builds
 `Build.slnf`, which leaves it out.
 
 ## Requirements
 
 - **The `maui` CLI**: `dotnet tool install -g Microsoft.Maui.Cli --prerelease`, on the same version as
-  `Microsoft.Maui.DevFlow.Agent` in `Directory.Packages.props` (run-ios.sh warns if they differ).
-- **Xcode with an iOS simulator runtime.**
+  `Microsoft.Maui.DevFlow.Agent` in `Directory.Packages.props` (both scripts warn if they differ).
+- **iOS: Xcode with an iOS simulator runtime.**
+- **Android: the Android SDK** (`ANDROID_HOME`, default `~/Library/Android/sdk`) with the emulator, platform-tools,
+  cmdline-tools and the system image above (`SAMPLE_UITEST_SYSTEM_IMAGE` picks another).
 
 ## How it works
 
@@ -42,6 +57,11 @@ From an IDE or a plain `dotnet test`, the app has to be installed on the simulat
  DevFlowSession ── maui devflow batch (stdin/JSONL) ─▶       ui query / tap / fill / set-property / status
  NativeUi ── exact-match queries, waits, taps                (the MAUI visual tree)
 ```
+
+On Android, `Adb` takes `Simctl`'s place behind `IAppDevice`. The agent inside the emulator cannot reach
+the broker on the host, so it never shows up in `maui devflow list`. It listens on its default port 9223, and
+the fixture drives it through `adb forward tcp:<host port> tcp:9223`. The forward is re-created on every
+launch, because it lives in the adb server and an IDE on the same machine can restart that server mid-run.
 
 - **Agent.** Debug builds of the Sample reference `Microsoft.Maui.DevFlow.Agent` and call
   `AddMauiDevFlowAgent()` in `MauiProgram`. The port comes from the DevFlow broker, so the fixture finds
@@ -75,10 +95,10 @@ From an IDE or a plain `dotnet test`, the app has to be installed on the simulat
 ## Layout
 
 ```
-DevFlow/   the driver: Proc, Simctl, DevFlowCli + DevFlowSession (batch), NativeUi, AppFixture, UiTest, TestConfig
+DevFlow/   the driver: Proc, IAppDevice (Simctl, Adb), DevFlowCli + DevFlowSession (batch), NativeUi, AppFixture, UiTest, TestConfig
 Pages/     page objects: HomeList, DialogBench (+ provider/presenter switching), Dialogs (answering a ShinyControls dialog)
 Flows/     the tests
-run-ios.sh build + install + run
+run-ios.sh, run-android.sh   build + install + run
 ```
 
 ## What is covered
@@ -98,7 +118,6 @@ run-ios.sh build + install + run
 
 ## Not covered (yet)
 
-- **Android.** iOS only for now; the driver above `Simctl` is platform neutral.
 - **User-driven navigation guards.** `INavigationConfirmation` guards the back button, tabs and flyout.
   DevFlow cannot touch the native back button, and `ui navigate ..` blocks the agent while the confirm
   dialog waits (see the traps above).
