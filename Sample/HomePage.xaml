@@ -7,9 +7,7 @@
              Title="Shiny Shell">
 
     <CollectionView ItemsSource="{Binding Demos}"
-                    IsGrouped="True"
-                    SelectionMode="Single"
-                    SelectionChanged="OnSelectionChanged">
+                    IsGrouped="True">
 
         <CollectionView.GroupHeaderTemplate>
             <DataTemplate x:DataType="sample:DemoGroup">
@@ -23,7 +21,15 @@
 
         <CollectionView.ItemTemplate>
             <DataTemplate x:DataType="sample:DemoItem">
-                <Grid Padding="15,8" ColumnDefinitions="*,Auto">
+                <!-- A tap gesture rather than CollectionView selection: UI tests (tests/Sample.UITests) invoke it
+                     through DevFlow, which cannot select a row. The title doubles as the AutomationId. -->
+                <Grid Padding="15,8"
+                      ColumnDefinitions="*,Auto"
+                      AutomationId="{Binding Title}">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type sample:HomeViewModel}}}"
+                                              CommandParameter="{Binding .}" />
+                    </Grid.GestureRecognizers>
                     <VerticalStackLayout>
                         <Label Text="{Binding Title}" FontSize="15" />
                         <Label Text="{Binding Description}"

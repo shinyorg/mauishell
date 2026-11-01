@@ -21,5 +21,11 @@
         <PackageVersion Include="Verify.Xunit" Version="31.12.5" />
         <PackageVersion Include="xunit" Version="2.9.3" />
         <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- UI tests (tests/Sample.UITests): the in-app agent the Sample references in Debug. Keep the
+             `maui devflow` CLI on the same version (dotnet tool update -g Microsoft.Maui.Cli). -->
+        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.13.26526.5" />
     </ItemGroup>
 </Project>

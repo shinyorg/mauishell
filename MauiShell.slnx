@@ -19,4 +19,5 @@
     <Project Path="src\Shiny.Maui.Shell.SourceGenerators\Shiny.Maui.Shell.SourceGenerators.csproj" />
     <Project Path="src\Shiny.Maui.Shell\Shiny.Maui.Shell.csproj" />
     <Project Path="tests\Shiny.Maui.Shell.Tests\Shiny.Maui.Shell.Tests.csproj" />
+    <Project Path="tests\Sample.UITests\Sample.UITests.csproj" />
 </Solution>

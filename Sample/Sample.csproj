@@ -67,5 +67,10 @@
         <ProjectReference Include="..\src\Shiny.Maui.Shell.UxDiversDialogs\Shiny.Maui.Shell.UxDiversDialogs.csproj"/>
     </ItemGroup>
 
+    <!-- UI tests (tests/Sample.UITests): the MAUI DevFlow agent the suite drives the app through. Debug only. -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <PackageReference Include="Microsoft.Maui.DevFlow.Agent"/>
+    </ItemGroup>
+
     <Import Project="..\src\Shiny.Maui.Shell.SourceGenerators\build\Package.targets"/>
 </Project>

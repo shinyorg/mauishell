@@ -12,6 +12,8 @@
             <Label Text="Tab badges appear on the tab bar. Switch to the Tabbed Shell from Shell Switching to see them on the Badges tab."
                    TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" />
 
+            <Label Text="{Binding CurrentBadge, StringFormat='Current badge: {0}'}" />
+
             <Label Text="Set Badge Value" FontAttributes="Bold" FontSize="16" Padding="0,10,0,0" />
 
             <Button Text="Set Badge = 1"

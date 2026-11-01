@@ -13,16 +13,17 @@
 
         <Label Text="{Binding Preset, StringFormat='Preset: {0}'}" />
 
-        <CollectionView ItemsSource="{Binding Colors}">
-            <CollectionView.ItemTemplate>
+        <!-- A bindable layout, not a CollectionView: the overlay presenter sizes its card to the
+             content, and a CollectionView in an unconstrained stack measures to zero height there. -->
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Colors}" Spacing="8">
+            <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="x:String">
                     <Button Text="{Binding .}"
-                            Margin="0,4"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type sample:PickColorViewModel}}, Path=PickCommand}"
                             CommandParameter="{Binding .}" />
                 </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
 
         <Button Text="Nested dialog" Command="{Binding ShowNestedCommand}" />
         <Label Text="{Binding NestedResult, StringFormat='Nested: {0}'}" FontSize="12" />

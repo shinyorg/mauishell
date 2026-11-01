@@ -37,6 +37,9 @@ public partial class HomeViewModel(INavigator navigator) : ObservableObject
             new("Shell Switching", "Swap between Shell types at runtime", () => navigator.NavigateTo(nameof(ShellTestPage))),
         }
     ];
+
+    [RelayCommand]
+    void Open(DemoItem item) => item.Action?.Invoke();
 }
 
 public class DemoGroup(string name) : ObservableCollection<DemoItem>

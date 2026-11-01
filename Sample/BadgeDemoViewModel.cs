@@ -1,10 +1,19 @@
 using Shiny;
+using Shiny.Infrastructure;
 
 namespace Sample;
 
 [ShellMap<BadgeDemoPage>]
-public partial class BadgeDemoViewModel(INavigator navigator, IDialogs dialogs) : ObservableObject
+public partial class BadgeDemoViewModel(
+    INavigator navigator,
+    IDialogs dialogs,
+    ShellTabBadgeManager badges
+) : ObservableObject
 {
+    // Read back from ShellTabBadgeManager rather than remembered here, so it shows what the
+    // tab bar was actually given
+    [ObservableProperty] string currentBadge = Describe(badges.Get(nameof(BadgeDemoPage)));
+
     [RelayCommand]
     async Task SetBadge(string value)
     {
@@ -12,6 +21,7 @@ public partial class BadgeDemoViewModel(INavigator navigator, IDialogs dialogs) 
             return;
 
         await navigator.SetTabBadge<BadgeDemoViewModel>(int.Parse(value));
+        this.Refresh();
     }
 
     [RelayCommand]
@@ -21,7 +31,12 @@ public partial class BadgeDemoViewModel(INavigator navigator, IDialogs dialogs) 
             return;
 
         await navigator.ClearTabBadge<BadgeDemoViewModel>();
+        this.Refresh();
     }
+
+    void Refresh() => this.CurrentBadge = Describe(badges.Get(nameof(BadgeDemoPage)));
+
+    static string Describe(int? value) => value?.ToString() ?? "(none)";
 
     async Task<bool> EnsureTabbedShell()
     {

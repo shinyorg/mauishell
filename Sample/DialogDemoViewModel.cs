@@ -142,15 +142,14 @@ public partial class DialogDemoViewModel(
     }
 
 
+    // Typed, not a route with args: ModalDemoViewModel takes its values through [ShellProperty],
+    // and string-based args only reach a ViewModel that implements IQueryAttributable
     [RelayCommand]
-    Task ShowDialogOverModal() => navigator.NavigateTo(
-        "modal",
-        relativeNavigation: true,
-        args: [
-            ("Title", "Dialog over a modal"),
-            ("OptionalNote", "Show the dialog from here - it should land on top of this page")
-        ]
-    );
+    Task ShowDialogOverModal() => navigator.NavigateTo<ModalDemoViewModel>(x =>
+    {
+        x.Title = "Dialog over a modal";
+        x.OptionalNote = "Show the dialog from here - it should land on top of this page";
+    });
 
 
     [RelayCommand]

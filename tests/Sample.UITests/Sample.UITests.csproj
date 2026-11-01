@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Plain net10.0 on purpose: the suite drives the Sample app from the outside through the
+         `maui devflow` CLI and `xcrun simctl` / `adb`, so it needs neither the MAUI workload nor a reference
+         to the app project. See readme.md in this folder. -->
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <!-- xUnit1051: the waits here are bounded by their own deadlines. -->
+        <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+        <!-- .app-build(-android): the Sample builds the run scripts make for the suite. -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);.app-build/**;.app-build-android/**</DefaultItemExcludes>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="Shouldly"/>
+        <PackageReference Include="xunit.v3"/>
+        <PackageReference Include="xunit.runner.visualstudio"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit"/>
+        <Using Include="Shouldly"/>
+    </ItemGroup>
+
+</Project>

@@ -46,4 +46,19 @@ public class NavigationUriTests
     [InlineData("")]
     public void GetTargetRoute_PureBackNavigationHasNoTarget(string uri)
         => NavigationUri.GetTargetRoute(uri).ShouldBeNull();
+
+
+    [Theory]
+    [InlineData("a/b/c", true)]
+    [InlineData("a/b?id=5", true)]
+    [InlineData("../a/b", true)]
+    [InlineData("//home/a/b", true)]
+    [InlineData("a", false)]
+    [InlineData("../a", false)]
+    [InlineData("../..", false)]
+    [InlineData("//home/a", false)]
+    [InlineData("a?next=b/c", false)]
+    [InlineData("", false)]
+    public void PushesSeveralPages(string uri, bool expected)
+        => NavigationUri.PushesSeveralPages(uri).ShouldBe(expected);
 }

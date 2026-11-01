@@ -341,7 +341,11 @@ public class ShinyShellNavigator(
                 }
             }
 
-            await shell.GoToAsync(uri, true, parameters).ConfigureAwait(true);
+            // iOS Shell crashes (IndexOutOfRangeException in ShellSectionRenderer.InsertViewController)
+            // when it inserts the earlier pages of a multi-page push while the last one is still
+            // animating in - the page it inserts before is not in the navigation controller yet.
+            var animate = !(OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst()) || !NavigationUri.PushesSeveralPages(uri);
+            await shell.GoToAsync(uri, animate, parameters).ConfigureAwait(true);
         }
         catch
         {
@@ -761,8 +765,10 @@ public class ShinyShellNavigator(
             )
             : null;
 
+        // A navigation Shell will not let anyone cancel has no deferral to give (GetDeferral
+        // returns null), so there is nothing for a guard to decide - only to observe.
         var hasInterceptors = interceptors.HasInterceptors;
-        if (vm is not INavigationConfirmation && !hasInterceptors)
+        if (!shellArgs.CanCancel || (vm is not INavigationConfirmation && !hasInterceptors))
         {
             this.WatchForShellCancellation(shell, shellArgs, observed);
             return;

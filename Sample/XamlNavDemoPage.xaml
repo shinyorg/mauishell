@@ -36,8 +36,10 @@
                     shiny:Navigate.Route="DetailPage" />
 
             <Label Text="Absolute Navigation" FontAttributes="Bold" />
+            <!-- Absolute routes must start at a Shell item - Shell rejects //DetailPage, a global
+                 route on its own - so this resets the stack to Home with Detail on top. -->
             <Button Text="Set Root to Detail"
-                    shiny:Navigate.Route="DetailPage"
+                    shiny:Navigate.Route="HomePage/DetailPage"
                     shiny:Navigate.RelativeNavigation="False"
                     shiny:Navigate.ParameterKey="Text"
                     shiny:Navigate.ParameterValue="Absolute nav" />

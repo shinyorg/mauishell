@@ -256,7 +256,7 @@ public class NavigatorContractTests
         handler = handler.Substring(0, handler.IndexOf("\n    }\n", StringComparison.Ordinal));
 
         var start = handler.IndexOf("observers.StartShell(", StringComparison.Ordinal);
-        var bail = handler.IndexOf("if (vm is not INavigationConfirmation && !hasInterceptors)", StringComparison.Ordinal);
+        var bail = handler.IndexOf("if (!shellArgs.CanCancel || (vm is not INavigationConfirmation && !hasInterceptors))", StringComparison.Ordinal);
         var deferral = handler.IndexOf("GetDeferral()", StringComparison.Ordinal);
 
         start.ShouldBeGreaterThan(-1,

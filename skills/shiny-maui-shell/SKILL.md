@@ -625,6 +625,7 @@ await navigator
 - All pages used in a builder chain **must** be globally registered via `Routing.RegisterRoute` (i.e., `registerRoute: true`, which is the default). Pages declared as `ShellContent` in XAML cannot be used in multi-segment relative URIs.
 - `PopBack()` must be called before any `Add()` calls.
 - `fromRoot: true` on `CreateBuilder` only works when the target route is a shell-declared route (a `ShellContent` in XAML), not a globally registered route.
+- On iOS and Mac Catalyst a chain that pushes more than one page runs **without the push animation** (it works around a MAUI iOS crash). Single-page pushes still animate. Do not add code to re-enable it.
 
 ### 5b. Tab Badges
 

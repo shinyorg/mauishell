@@ -57,6 +57,8 @@ public static class MauiProgram
 #if DEBUG
         builder.Logging.SetMinimumLevel(LogLevel.Trace);
         builder.Logging.AddDebug();
+        // UI tests (tests/Sample.UITests) drive the app through the DevFlow agent
+        Microsoft.Maui.DevFlow.Agent.AgentServiceExtensions.AddMauiDevFlowAgent(builder);
 #endif
 
         return builder.Build();

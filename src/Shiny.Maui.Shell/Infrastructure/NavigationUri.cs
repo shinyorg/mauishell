@@ -50,6 +50,32 @@ public static class NavigationUri
 
 
     /// <summary>
+    /// True when the URI pushes more than one page in a single navigation (<c>A/B/C</c>,
+    /// <c>../A/B</c>). Shell pushes the last page and inserts the others before it. An absolute
+    /// URI's first segment selects the root rather than pushing, so it is not counted.
+    /// </summary>
+    public static bool PushesSeveralPages(string uri)
+    {
+        if (String.IsNullOrWhiteSpace(uri))
+            return false;
+
+        var value = uri;
+        var query = value.IndexOfAny(['?', '#']);
+        if (query >= 0)
+            value = value.Substring(0, query);
+
+        var pushed = value
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Count(x => x != "..");
+
+        if (value.StartsWith("//", StringComparison.Ordinal))
+            pushed--;
+
+        return pushed > 1;
+    }
+
+
+    /// <summary>
     /// The route the navigation lands on - the last real segment, ignoring the query string and
     /// any leading pops. Returns null for a pure back navigation, which lands on a page that
     /// already exists.
