@@ -1133,7 +1133,7 @@ public class MyViewModel(ShellServices shell)
 
 ## IMainThread Interface
 
-Thread-marshalling abstraction used internally by `ShellNavigator` and `ShellDialogs`. Prefer this over `Microsoft.Maui.ApplicationModel.MainThread` inside Shiny Shell code because the default implementation (`MauiMainThread`) transparently works around platforms where MAUI's `MainThread` is missing or broken: on the `net10.0-macos` (AppKit) target it dispatches to `DispatchQueue.MainQueue` directly (inline when already on the main thread) — no `Microsoft.Maui.Platforms.MacOS.Essentials` dependency; on Linux the delegate executes inline. Every other platform delegates to MAUI's `MainThread`.
+Thread-marshalling abstraction used internally by `ShellNavigator` and `ShellDialogs`. Prefer this over `Microsoft.Maui.ApplicationModel.MainThread` inside Shiny Shell code because the default implementation (`MauiMainThread`) transparently works around platforms where MAUI's `MainThread` is missing or broken: on the `net11.0-macos` (AppKit) target it dispatches to `DispatchQueue.MainQueue` directly (inline when already on the main thread) — no `Microsoft.Maui.Platforms.MacOS.Essentials` dependency; on Linux the delegate executes inline. Every other platform delegates to MAUI's `MainThread`.
 
 ```csharp
 public interface IMainThread

@@ -3,15 +3,14 @@
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     </PropertyGroup>
     <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.AI" Version="10.9.0" />
-        <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
-        <PackageVersion Include="Nerdbank.GitVersioning" Version="3.10.94" />
-        <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.100" />
+        <PackageVersion Include="Microsoft.Extensions.AI" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Maui.Controls" Version="11.0.10" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageVersion Include="Shiny.Maui.Controls" Version="1.6.0" />
         <PackageVersion Include="UXDivers.Popups.Maui" Version="0.9.4" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
     </ItemGroup>
     <ItemGroup>
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />

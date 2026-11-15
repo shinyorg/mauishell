@@ -1,6 +1,6 @@
 ﻿<Project>
     <PropertyGroup>
-        <BaseTargetFramework>net10.0</BaseTargetFramework>
+        <BaseTargetFramework>net11.0</BaseTargetFramework>
         <Authors>Allan Ritchie</Authors>
         <Owners>aritchie;shinylib</Owners>
         <LangVersion>latest</LangVersion>
@@ -8,6 +8,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <DisableExtraReferences>False</DisableExtraReferences>
         <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+        <!-- local builds only - CI stamps the real version from the v* tag (see .github/workflows/release.yml) -->
+        <Version>0.0.1-local</Version>
         <Description>Shiny MAUI Shell - Make .NET MAUI shell a pleasant experience</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Copyright>Copyright (c) $([System.DateTime]::Now.Year) Allan Ritchie</Copyright>

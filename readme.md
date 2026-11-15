@@ -105,7 +105,7 @@ For every navigation - tabs, flyout and back button included - with its outcome,
 - One base class change — `AppShell : ShinyShell` — for deterministic BindingContext assignment
 - Page–ViewModel mapping with **automatic BindingContext** assignment
 - Drop-in `[ShellMap]` attribute replaces manual route registration
-- `IMainThread` for main-thread marshalling that works everywhere Shiny Shell runs — including the `net10.0-macos` (AppKit) target, where MAUI's `MainThread` has no implementation and Shiny marshals via `NSThread`/GCD directly (no extra package dependency)
+- `IMainThread` for main-thread marshalling that works everywhere Shiny Shell runs — including the `net11.0-macos` (AppKit) target, where MAUI's `MainThread` has no implementation and Shiny marshals via `NSThread`/GCD directly (no extra package dependency)
 
 ---
 

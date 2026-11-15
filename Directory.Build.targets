@@ -1,7 +1,5 @@
 <Project>
     <ItemGroup>
-        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="All" />
-        
         <None Include="$(MSBuildThisFileDirectory)nuget.png" Pack="true" PackagePath="icon.png" />
         <None Include="$(MSBuildThisFileDirectory)readme.md" Pack="true" PackagePath="\" />
     </ItemGroup>

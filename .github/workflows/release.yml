@@ -1,0 +1,121 @@
+name: Release
+
+# Push a tag like v7.1.0 (or v7.1.0-beta1) to build the packages, push them to NuGet and publish a GitHub release
+# with them attached. The tag is the version - there is nothing to bump in the repo. A suffix after '-' marks both the
+# NuGet packages and the GitHub release as prerelease.
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 7.1.0) - creates the v<version> tag'
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: 11.0.x
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version '$VERSION' must look like 1.2.3 or 1.2.3-suffix"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then echo "prerelease=--prerelease" >> "$GITHUB_OUTPUT"; fi
+
+  build:
+    needs: version
+    # Windows so the windows10.0.19041.0 head is in the package
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          workloads: maui, macos
+
+      # Release packs on build (GeneratePackageOnBuild); Version overrides the local placeholder in Directory.Build.props
+      - name: Build
+        run: dotnet build Build.slnf /restore -m -c Release -p:Version="$env:VERSION" -p:ContinuousIntegrationBuild=true
+
+      - name: Collect packages
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Get-ChildItem src -Recurse -Include *.nupkg, *.snupkg | Where-Object { $_.FullName -like '*\bin\Release\*' } | Copy-Item -Destination artifacts
+          Get-ChildItem artifacts
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nugets
+          path: artifacts/*
+          if-no-files-found: error
+
+  release:
+    needs: [ version, build ]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # NuGet trusted publishing (OIDC)
+      contents: write   # gh release create
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      TAG: ${{ needs.version.outputs.tag }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: nugets
+          path: artifacts
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: NuGet Login (OIDC)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: aritchie
+
+      # NuGet first: a GitHub release only appears once the packages it points at are live. The .snupkg files are
+      # pushed alongside their .nupkg.
+      - name: Publish NuGets
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          --skip-duplicate
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$TAG" artifacts/*.nupkg
+          --repo "${{ github.repository }}"
+          --title "Shiny MAUI Shell $VERSION"
+          --generate-notes
+          --target "$GITHUB_SHA"
+          $PRERELEASE

@@ -195,7 +195,7 @@ Shiny MAUI Shell wraps .NET MAUI Shell to provide:
 - Source generators that eliminate boilerplate route registration, produce strongly-typed navigation methods, and generate AI tool metadata
 - `ShinyShell` base class for deterministic initial-page BindingContext assignment
 - `ShellServices` record that aggregates `INavigator`, `IDialogs`, and `IMainThread` for convenient single-parameter injection
-- `IMainThread` abstraction that works on every target — including `net10.0-macos` (AppKit, via `NSThread`/GCD directly — no extra package) and Linux (runs inline), where MAUI's `MainThread` is missing or broken
+- `IMainThread` abstraction that works on every target — including `net11.0-macos` (AppKit, via `NSThread`/GCD directly — no extra package) and Linux (runs inline), where MAUI's `MainThread` is missing or broken
 - Pluggable `IDialogs` implementation via `UseDialogs<TDialog>()` — swap in your own dialog provider (e.g. ACR UserDialogs, a custom sheet, a test double)
 
 Inspired by [Prism Library](https://prismlibrary.com) by Dan Siegel and Brian Lagunas.
@@ -999,7 +999,7 @@ public class MyViewModel(ShellServices shell)
 }
 ```
 
-`IMainThread` is the thread-marshalling abstraction used internally by `ShellNavigator` and `ShellDialogs`. Prefer it over `Microsoft.Maui.ApplicationModel.MainThread` inside Shiny Shell code because the default implementation (`MauiMainThread`) transparently works around platforms where MAUI's `MainThread` is missing or broken: on the `net10.0-macos` (AppKit) target it dispatches to `DispatchQueue.MainQueue` directly (running inline when already on the main thread) — no `Microsoft.Maui.Platforms.MacOS.Essentials` dependency; on Linux the delegate runs inline. Every other platform delegates to MAUI's `MainThread`.
+`IMainThread` is the thread-marshalling abstraction used internally by `ShellNavigator` and `ShellDialogs`. Prefer it over `Microsoft.Maui.ApplicationModel.MainThread` inside Shiny Shell code because the default implementation (`MauiMainThread`) transparently works around platforms where MAUI's `MainThread` is missing or broken: on the `net11.0-macos` (AppKit) target it dispatches to `DispatchQueue.MainQueue` directly (running inline when already on the main thread) — no `Microsoft.Maui.Platforms.MacOS.Essentials` dependency; on Linux the delegate runs inline. Every other platform delegates to MAUI's `MainThread`.
 
 ```csharp
 public interface IMainThread

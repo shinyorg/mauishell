@@ -73,3 +73,14 @@ Do **not** write blog posts automatically as part of a fix/feature. Write them *
 - **Hero image is required.** Create `src/assets/<slug>-hero.svg`:
   - SVG, `viewBox="0 0 1200 630"`, `width="1200" height="630"`.
   - Match the house style: dark navy/indigo gradient background (`#0f172a` → `#1e1b4b`), cyan/green/violet accent gradients, subtle glow filters, the feature name as the headline. Crib an existing one (e.g. `datasync-hero.svg`, `documentdb-orleans-hero.svg`) as a starting template.
+
+## Releasing
+
+`main` is the only long-lived branch. Versions come from git tags, not the repo (no Nerdbank / `version.json`):
+
+- Push a `v7.1.0` (or `v7.1.0-beta1`) tag, or run the **Release** workflow by hand with a version. It builds
+  `Build.slnf` with `-p:Version=<tag>`, pushes the packages to NuGet (trusted publishing) and creates a GitHub release
+  with the `.nupkg` files attached and generated notes. A `-suffix` makes both prerelease.
+- **CI** (`ci.yml`) builds and runs the unit tests on every push / PR to `main`; it publishes nothing.
+- Local builds are stamped `0.0.1-local` (`Directory.Build.props`).
+- Promote the docs release-note heading from `TBD` to the release date when you tag.
