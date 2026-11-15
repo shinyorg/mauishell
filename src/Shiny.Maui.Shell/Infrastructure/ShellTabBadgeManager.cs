@@ -1,35 +1,37 @@
-using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace Shiny.Infrastructure;
 
-public sealed class ShellTabBadgeManager(
-    ILogger<ShellTabBadgeManager> logger,
-    IMainThread mainThread
-)
+/// <summary>
+/// Sets tab badges through MAUI's <see cref="BaseShellItem.BadgeText"/> on the tab's <see cref="ShellSection"/>,
+/// so every platform MAUI draws badges on gets them. Colors are left alone - style them with
+/// <see cref="BaseShellItem.BadgeColor"/> / <see cref="BaseShellItem.BadgeTextColor"/> in XAML.
+/// </summary>
+public sealed class ShellTabBadgeManager(IMainThread mainThread)
 {
-    readonly Dictionary<string, int> badgeValues = new(StringComparer.Ordinal);
+    readonly Dictionary<string, string> badgeValues = new(StringComparer.Ordinal);
     readonly Lock sync = new();
 
 
     /// <summary>
     /// The badges currently set, keyed by tab route (the last segment of the route passed to
-    /// <see cref="Set"/>). A snapshot - safe to read from any thread.
+    /// <see cref="Set(string, string)"/>). An empty string is a dot badge. A snapshot - safe to read from any thread.
     /// </summary>
-    public IReadOnlyDictionary<string, int> Values
+    public IReadOnlyDictionary<string, string> Values
     {
         get
         {
             lock (this.sync)
-                return new Dictionary<string, int>(this.badgeValues, StringComparer.Ordinal);
+                return new Dictionary<string, string>(this.badgeValues, StringComparer.Ordinal);
         }
     }
 
 
     /// <summary>
-    /// The badge value on a tab, or null when it has none. Accepts the same routes as
-    /// <see cref="Set"/> - a route name or a full route, of which the last segment is the tab.
+    /// The badge text on a tab - an empty string for a dot badge - or null when it has none. Accepts the same
+    /// routes as <see cref="Set(string, string)"/> - a route name or a full route, of which the last segment is the tab.
     /// </summary>
-    public int? Get(string route)
+    public string? Get(string route)
     {
         var normalizedRoute = NormalizeRoute(route);
         lock (this.sync)
@@ -42,14 +44,25 @@ public sealed class ShellTabBadgeManager(
         if (value < 0)
             throw new ArgumentOutOfRangeException(nameof(value), "Tab badge value must be 0 or greater");
 
+        return this.Set(route, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+
+    /// <summary>
+    /// Sets the badge text on a tab. An empty string shows a dot badge. Windows shows non-numeric text as a dot.
+    /// </summary>
+    public Task Set(string route, string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
         return mainThread.InvokeOnMainThreadAsync(() =>
         {
             var normalizedRoute = NormalizeRoute(route);
-            var target = this.ResolveTarget(normalizedRoute);
+            var section = ResolveSection(normalizedRoute);
 
-            ShellTabBadgePlatform.Set(target.Index, value);
+            section.BadgeText = text;
             lock (this.sync)
-                this.badgeValues[normalizedRoute] = value;
+                this.badgeValues[normalizedRoute] = text;
         });
     }
 
@@ -57,39 +70,26 @@ public sealed class ShellTabBadgeManager(
     public Task Clear(string route) => mainThread.InvokeOnMainThreadAsync(() =>
     {
         var normalizedRoute = NormalizeRoute(route);
-        var target = this.ResolveTarget(normalizedRoute);
+        var section = ResolveSection(normalizedRoute);
 
-        ShellTabBadgePlatform.Clear(target.Index);
+        section.BadgeText = null;
         lock (this.sync)
             this.badgeValues.Remove(normalizedRoute);
     });
 
 
+    /// <summary>
+    /// Puts the badges back on the current Shell's tabs - a switched-in Shell starts without them.
+    /// </summary>
     public void ReapplyAll()
     {
-        var badges = this.Values;
-        if (badges.Count == 0)
-            return;
+        var pending = this.Values
+            .Select(badge => (Section: FindSection(badge.Key), Text: badge.Value))
+            .Where(x => x.Section != null && x.Section.BadgeText != x.Text)
+            .ToList();
 
-        foreach (var badge in badges)
-        {
-            if (!this.TryResolveTarget(badge.Key, out var target))
-                continue;
-
-            try
-            {
-                ShellTabBadgePlatform.Set(target.Index, badge.Value);
-            }
-            catch (PlatformNotSupportedException ex)
-            {
-                logger.LogWarning(ex, "Tab badges are not supported on this platform");
-                return;
-            }
-            catch (InvalidOperationException ex)
-            {
-                logger.LogDebug(ex, "Unable to reapply tab badge for route '{route}'", badge.Key);
-            }
-        }
+        foreach (var badge in pending)
+            badge.Section!.BadgeText = badge.Text;
     }
 
 
@@ -107,49 +107,17 @@ public sealed class ShellTabBadgeManager(
     }
 
 
-    TabTarget ResolveTarget(string route)
-    {
-        if (!this.TryResolveTarget(route, out var target))
-            throw new InvalidOperationException($"Could not resolve tab route '{route}' in the active Shell");
-
-        return target;
-    }
+    static ShellSection ResolveSection(string route)
+        => FindSection(route) ?? throw new InvalidOperationException($"Could not resolve tab route '{route}' in the active Shell");
 
 
-    bool TryResolveTarget(string route, out TabTarget target)
-    {
-        target = default;
-
-        var shell = Shell.Current;
-        var shellItem = shell?.CurrentItem;
-        if (shellItem == null)
-            return false;
-
-        for (var index = 0; index < shellItem.Items.Count; index++)
-        {
-            var section = shellItem.Items[index];
-            if (RouteMatches(section, route))
-            {
-                target = new TabTarget(index, section);
-                return true;
-            }
-
-            foreach (var content in section.Items)
-            {
-                if (RouteMatches(content, route))
-                {
-                    target = new TabTarget(index, section);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+    // A tab is a ShellSection - matched by its own route or the route of one of its ShellContents. Every ShellItem
+    // is searched, so a tab bar that is not on screen can be badged too.
+    static ShellSection? FindSection(string route) => Shell.Current?.Items
+        .SelectMany(item => item.Items)
+        .FirstOrDefault(section => RouteMatches(section, route) || section.Items.Any(content => RouteMatches(content, route)));
 
 
     static bool RouteMatches(BindableObject element, string route)
         => String.Equals(Routing.GetRoute(element), route, StringComparison.Ordinal);
-
-
-    readonly record struct TabTarget(int Index, ShellSection Section);
 }

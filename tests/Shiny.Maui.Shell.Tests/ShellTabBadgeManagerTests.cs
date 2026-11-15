@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging.Abstractions;
 using Shiny.Infrastructure;
 using Shouldly;
 
@@ -18,7 +17,7 @@ public class ShellTabBadgeManagerTests
         public void BeginInvokeOnMainThread(Action action) => action();
     }
 
-    static ShellTabBadgeManager Build() => new(NullLogger<ShellTabBadgeManager>.Instance, new InlineMainThread());
+    static ShellTabBadgeManager Build() => new(new InlineMainThread());
 
 
     [Fact]
@@ -54,4 +53,19 @@ public class ShellTabBadgeManagerTests
         manager.Get("inbox").ShouldBeNull();
         manager.Values.ShouldBeEmpty();
     }
+
+
+    [Fact]
+    public async Task Set_RejectsBadValues()
+    {
+        var manager = Build();
+
+        await Should.ThrowAsync<ArgumentOutOfRangeException>(() => manager.Set("inbox", -1));
+        await Should.ThrowAsync<ArgumentNullException>(() => manager.Set("inbox", (string)null!));
+    }
+
+
+    [Fact]
+    public void ReapplyAll_WithNoShell_DoesNothing()
+        => Build().ReapplyAll();
 }

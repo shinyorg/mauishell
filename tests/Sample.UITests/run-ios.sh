@@ -55,7 +55,7 @@ if [[ $BUILD == 1 ]]; then
     step "Build the Sample (Debug, iOS simulator)"
     # Its own output/intermediate folders, so this never fights over Sample/bin|obj with an IDE build. Relative to
     # the Sample project.
-    dotnet build "$ROOT/Sample/Sample.csproj" -f net10.0-ios -c Debug \
+    dotnet build "$ROOT/Sample/Sample.csproj" -f net11.0-ios -c Debug \
         -p:RuntimeIdentifier=iossimulator-arm64 \
         -p:OutputPath=../tests/Sample.UITests/.app-build/bin/ \
         -p:IntermediateOutputPath=../tests/Sample.UITests/.app-build/obj/ \

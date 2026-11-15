@@ -85,6 +85,12 @@ public interface INavigator
     // Set a numeric badge using the route mapped to a ViewModel
     Task SetTabBadge<TViewModel>(int value);
 
+    // Set a text badge ("" for a dot) on a tab route in the active Shell
+    Task SetTabBadge(string route, string text);
+
+    // Set a text badge ("" for a dot) using the route mapped to a ViewModel
+    Task SetTabBadge<TViewModel>(string text);
+
     // Clear a badge from a tab route in the active Shell
     Task ClearTabBadge(string route);
 
@@ -435,7 +441,8 @@ public class MyViewModel(INavigator navigator)
 // Switch to a Shell resolved from DI
 await navigator.SwitchShell<MainAppShell>();
 
-// Set or clear a numeric badge on an existing tab
+// Set or clear a badge on an existing tab - a count, text, or "" for a dot
+await navigator.SetTabBadge("Inbox", "New");
 await navigator.SetTabBadge("Inbox", 3);
 await navigator.SetTabBadge<InboxViewModel>(7);
 await navigator.ClearTabBadge("Inbox");
@@ -453,8 +460,9 @@ await navigator
 ### Tab Badge Constraints
 
 - Badge APIs only work for routes already present as tabs in the active Shell
-- Supported platforms: Android, iOS, Mac Catalyst, Windows
-- Unsupported platforms throw `PlatformNotSupportedException`
+- They set MAUI 11 `BaseShellItem.BadgeText` on the tab's `ShellSection`; rendered on Android, iOS, Mac Catalyst and Windows (Windows draws non-numeric text as a dot), a no-op elsewhere
+- Style with `BadgeColor` / `BadgeTextColor` on the `Tab` in XAML; don't also bind `BadgeText` on that tab
+- Toolbar badges: bind `ToolbarItem.BadgeText` (`null` hides, `""` is a dot) - there is no `INavigator` API for them
 
 ## IPageLifecycleAware Interface
 

@@ -78,7 +78,7 @@ if [[ $BUILD == 1 ]]; then
     # Its own output/intermediate folders, so this never fights over Sample/bin|obj with an IDE build. Relative to
     # the Sample project. A Debug build normally leaves the assemblies out of the apk (fast deployment); an apk
     # installed with adb needs them embedded.
-    dotnet build "$ROOT/Sample/Sample.csproj" -f net10.0-android -c Debug \
+    dotnet build "$ROOT/Sample/Sample.csproj" -f net11.0-android -c Debug \
         -p:RuntimeIdentifier=android-arm64 \
         -p:EmbedAssembliesIntoApk=true \
         -p:AndroidPackageFormat=apk \

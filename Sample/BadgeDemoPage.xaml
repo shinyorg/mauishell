@@ -4,7 +4,13 @@
              xmlns:sample="clr-namespace:Sample"
              x:DataType="sample:BadgeDemoViewModel"
              x:Class="Sample.BadgeDemoPage"
-             Title="Tab Badges">
+             Title="Badges">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Inbox"
+                     BadgeText="{Binding ToolbarBadge}"
+                     BadgeColor="Blue" />
+    </ContentPage.ToolbarItems>
 
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="12">
@@ -28,8 +34,32 @@
                     Command="{Binding SetBadgeCommand}"
                     CommandParameter="99" />
 
+            <Button Text="Set Badge = New"
+                    Command="{Binding SetTextBadgeCommand}"
+                    CommandParameter="New" />
+
+            <Button Text="Set Badge = Dot"
+                    Command="{Binding SetTextBadgeCommand}"
+                    CommandParameter="" />
+
             <Button Text="Clear Badge"
                     Command="{Binding ClearBadgeCommand}" />
+
+            <Label Text="Toolbar Badge" FontAttributes="Bold" FontSize="16" Padding="0,10,0,0" />
+
+            <Label Text="The Inbox toolbar item binds BadgeText to the ViewModel - no Shell needed."
+                   TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" />
+
+            <Label Text="{Binding ToolbarBadge, StringFormat='Toolbar badge: {0}', TargetNullValue='Toolbar badge: (none)'}" />
+
+            <Button Text="Increment Toolbar Badge"
+                    Command="{Binding IncrementToolbarBadgeCommand}" />
+
+            <Button Text="Toolbar Badge = Dot"
+                    Command="{Binding DotToolbarBadgeCommand}" />
+
+            <Button Text="Clear Toolbar Badge"
+                    Command="{Binding ClearToolbarBadgeCommand}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

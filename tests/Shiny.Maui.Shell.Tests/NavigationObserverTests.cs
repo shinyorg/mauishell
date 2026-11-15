@@ -101,7 +101,7 @@ public class NavigationObserverTests
             NullLogger<ShinyShellNavigator>.Instance,
             mainThread,
             appBuilder,
-            new ShellTabBadgeManager(NullLogger<ShellTabBadgeManager>.Instance, mainThread),
+            new ShellTabBadgeManager(mainThread),
             new ShellNavigationConfigurator(),
             new NavigationInterceptorPipeline(
                 NullLogger<NavigationInterceptorPipeline>.Instance,

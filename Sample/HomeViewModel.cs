@@ -25,7 +25,7 @@ public partial class HomeViewModel(INavigator navigator) : ObservableObject
         {
             new("Dialog Bench", "Every IDialogs provider and IDialogPresenter, switchable", () => navigator.NavigateTo(nameof(DialogDemoPage))),
             new("Overlay Host", "Dialogs raised from a ShinyContentPage", () => navigator.NavigateTo(nameof(OverlayHostDemoPage))),
-            new("Tab Badges", "Set and clear tab badges", () => navigator.NavigateTo(nameof(BadgeDemoPage))),
+            new("Tab Badges", "Set and clear tab and toolbar badges", () => navigator.NavigateTo(nameof(BadgeDemoPage))),
             new("Lifecycle", "Page lifecycle and navigation events", () => navigator.NavigateTo(nameof(LifecycleDemoPage))),
         },
         new("AI")

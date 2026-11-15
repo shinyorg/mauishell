@@ -187,6 +187,26 @@ public interface INavigator
 
 
     /// <summary>
+    /// Sets the badge text on a tab in the active Shell. An empty string shows a dot badge.
+    /// </summary>
+    /// <remarks>Windows shows only numeric text as a number; other text is drawn as a dot.</remarks>
+    /// <param name="route">The Shell route for the tab to update.</param>
+    /// <param name="text">The badge text, or an empty string for a dot.</param>
+    /// <returns>A task that represents the asynchronous badge update.</returns>
+    Task SetTabBadge(string route, string text);
+
+
+    /// <summary>
+    /// Sets the badge text on a tab associated with the specified view model in the active Shell. An empty string shows a dot badge.
+    /// </summary>
+    /// <remarks>Windows shows only numeric text as a number; other text is drawn as a dot.</remarks>
+    /// <typeparam name="TViewModel">The view model mapped to the tab page.</typeparam>
+    /// <param name="text">The badge text, or an empty string for a dot.</param>
+    /// <returns>A task that represents the asynchronous badge update.</returns>
+    Task SetTabBadge<TViewModel>(string text);
+
+
+    /// <summary>
     /// Clears the badge from a tab in the active Shell.
     /// </summary>
     /// <param name="route">The Shell route for the tab to update.</param>

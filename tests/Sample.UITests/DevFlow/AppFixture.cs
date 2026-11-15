@@ -122,11 +122,11 @@ public sealed class AppFixture : IAsyncLifetime
         string[] platform = TestConfig.Platform == TestPlatform.Android
             ?
             [
-                "-f", "net10.0-android", "-p:RuntimeIdentifier=android-arm64",
+                "-f", "net11.0-android", "-p:RuntimeIdentifier=android-arm64",
                 // A Debug build normally leaves the assemblies out for fast deployment; an installed apk needs them
                 "-p:EmbedAssembliesIntoApk=true", "-p:AndroidPackageFormat=apk"
             ]
-            : ["-f", "net10.0-ios", "-p:RuntimeIdentifier=iossimulator-arm64"];
+            : ["-f", "net11.0-ios", "-p:RuntimeIdentifier=iossimulator-arm64"];
 
         var result = await Proc.Run("dotnet",
             [

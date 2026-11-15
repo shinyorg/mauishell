@@ -14,6 +14,11 @@ public partial class BadgeDemoViewModel(
     // tab bar was actually given
     [ObservableProperty] string currentBadge = Describe(badges.Get(nameof(BadgeDemoPage)));
 
+    // ToolbarItem.BadgeText is bound to this - toolbar items belong to the page, so the ViewModel drives
+    // them through a binding rather than INavigator. null hides the badge, an empty string is a dot.
+    [ObservableProperty] string? toolbarBadge;
+    int toolbarCount;
+
     [RelayCommand]
     async Task SetBadge(string value)
     {
@@ -22,6 +27,30 @@ public partial class BadgeDemoViewModel(
 
         await navigator.SetTabBadge<BadgeDemoViewModel>(int.Parse(value));
         this.Refresh();
+    }
+
+    // "New", or "" for a dot
+    [RelayCommand]
+    async Task SetTextBadge(string text)
+    {
+        if (!await this.EnsureTabbedShell())
+            return;
+
+        await navigator.SetTabBadge<BadgeDemoViewModel>(text);
+        this.Refresh();
+    }
+
+    [RelayCommand]
+    void IncrementToolbarBadge() => this.ToolbarBadge = (++this.toolbarCount).ToString();
+
+    [RelayCommand]
+    void DotToolbarBadge() => this.ToolbarBadge = String.Empty;
+
+    [RelayCommand]
+    void ClearToolbarBadge()
+    {
+        this.toolbarCount = 0;
+        this.ToolbarBadge = null;
     }
 
     [RelayCommand]
@@ -36,7 +65,12 @@ public partial class BadgeDemoViewModel(
 
     void Refresh() => this.CurrentBadge = Describe(badges.Get(nameof(BadgeDemoPage)));
 
-    static string Describe(int? value) => value?.ToString() ?? "(none)";
+    static string Describe(string? value) => value switch
+    {
+        null => "(none)",
+        "" => "(dot)",
+        _ => value
+    };
 
     async Task<bool> EnsureTabbedShell()
     {

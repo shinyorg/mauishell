@@ -661,27 +661,24 @@ public class ShinyShellNavigator(
     public Task SetTabBadge(string route, int value) => tabBadgeManager.Set(route, value);
 
 
-    public Task SetTabBadge<TViewModel>(int value)
-    {
-        var route = navBuilder.GetRouteForViewModel(typeof(TViewModel));
-        if (route == null)
-            throw new InvalidOperationException($"Could not find a route for viewmodel '{typeof(TViewModel)}'");
+    public Task SetTabBadge<TViewModel>(int value) => tabBadgeManager.Set(this.GetTabRoute<TViewModel>(), value);
 
-        return tabBadgeManager.Set(route, value);
-    }
+
+    public Task SetTabBadge(string route, string text) => tabBadgeManager.Set(route, text);
+
+
+    public Task SetTabBadge<TViewModel>(string text) => tabBadgeManager.Set(this.GetTabRoute<TViewModel>(), text);
 
 
     public Task ClearTabBadge(string route) => tabBadgeManager.Clear(route);
 
 
-    public Task ClearTabBadge<TViewModel>()
-    {
-        var route = navBuilder.GetRouteForViewModel(typeof(TViewModel));
-        if (route == null)
-            throw new InvalidOperationException($"Could not find a route for viewmodel '{typeof(TViewModel)}'");
+    public Task ClearTabBadge<TViewModel>() => tabBadgeManager.Clear(this.GetTabRoute<TViewModel>());
 
-        return tabBadgeManager.Clear(route);
-    }
+
+    string GetTabRoute<TViewModel>()
+        => navBuilder.GetRouteForViewModel(typeof(TViewModel))
+            ?? throw new InvalidOperationException($"Could not find a route for viewmodel '{typeof(TViewModel)}'");
 
 
     Task<bool> DoGoBack(

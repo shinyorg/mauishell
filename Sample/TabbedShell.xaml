@@ -10,8 +10,12 @@
         <ShellContent Title="Home"
                       ContentTemplate="{DataTemplate local:HomePage}"
                       Route="HomePage" />
-        <ShellContent Title="Badges"
-                      ContentTemplate="{DataTemplate local:BadgeDemoPage}"
-                      Route="BadgeDemoPage" />
+        <!-- badge colors are styled on the tab; SetTabBadge only sets the text -->
+        <Tab Title="Badges"
+             BadgeColor="Purple"
+             BadgeTextColor="White">
+            <ShellContent ContentTemplate="{DataTemplate local:BadgeDemoPage}"
+                          Route="BadgeDemoPage" />
+        </Tab>
     </TabBar>
 </shiny:ShinyShell>

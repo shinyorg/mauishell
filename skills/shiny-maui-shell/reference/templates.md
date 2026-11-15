@@ -331,9 +331,30 @@ Task ShowInboxBadge() => navigator.SetTabBadge<InboxViewModel>(7);
 
 [RelayCommand]
 Task ClearInboxBadge() => navigator.ClearTabBadge<InboxViewModel>();
+
+// "New", or "" for a dot
+[RelayCommand]
+Task MarkInboxNew() => navigator.SetTabBadge<InboxViewModel>("New");
 ```
 
-> Supported platforms: Android, iOS, Mac Catalyst, Windows. Unsupported platforms throw `PlatformNotSupportedException`.
+> Rendered by MAUI 11 on Android, iOS, Mac Catalyst and Windows; a no-op elsewhere. Colors go on the `Tab` in XAML (`BadgeColor`, `BadgeTextColor`).
+
+## Toolbar Badge Template
+
+Toolbar items belong to the page - bind the badge to the ViewModel.
+
+```csharp
+[ObservableProperty] string? unreadCount;   // null hides the badge, "" shows a dot
+```
+
+```xml
+<ContentPage.ToolbarItems>
+    <ToolbarItem Text="Inbox"
+                 Command="{Binding OpenInboxCommand}"
+                 BadgeText="{Binding UnreadCount}"
+                 BadgeColor="Red" />
+</ContentPage.ToolbarItems>
+```
 
 ## XAML Navigation Template
 

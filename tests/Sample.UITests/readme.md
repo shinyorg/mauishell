@@ -50,7 +50,7 @@ so it needs the simulator as well. CI builds
 ## How it works
 
 ```
- test process (net10.0, xunit v3)                     iOS simulator
+ test process (net11.0, xunit v3)                     iOS simulator
  ─────────────────────────────────                    ─────────────────────────────────────────
  Simctl ── xcrun simctl install/launch ─────────────▶ Sample (Debug)
  DevFlowCli ── maui devflow list (find agent by pid)   └─ MAUI DevFlow agent :102xx

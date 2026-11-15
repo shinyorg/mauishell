@@ -8,6 +8,8 @@ triggers:
   - xaml navigation
   - attached navigation
   - tab badge
+  - toolbar badge
+  - BadgeText
   - badge
   - shell switch
   - switch shell
@@ -187,7 +189,8 @@ Shiny MAUI Shell wraps .NET MAUI Shell to provide:
 - A testable `INavigator` service for all navigation operations
 - A testable `IDialogs` service for alert, confirm, prompt, and action sheet dialogs
 - `INavigationBuilder` for multi-segment navigation (push multiple pages in one operation, pop-and-push)
-- Native numeric tab badges via `INavigator.SetTabBadge*` / `ClearTabBadge*`
+- Tab badges (count, text or dot) via `INavigator.SetTabBadge*` / `ClearTabBadge*`, on MAUI 11 `BaseShellItem.BadgeText`
+- Toolbar badges by binding MAUI 11 `ToolbarItem.BadgeText` to the ViewModel
 - Attached-property XAML navigation via `Navigate.Route`, `Navigate.RelativeNavigation`, and parameter helpers
 - Shell switching — swap the entire Shell at runtime (e.g., login → main app)
 - ViewModel lifecycle interfaces (appearing, disappearing, dispose, navigation confirmation)
@@ -420,7 +423,7 @@ Related observation hooks (all resolve from DI):
 - `IDialogObserver` (`AddDialogObserver<T>()`) - `OnDialogShown(PresentedDialog)` /
   `OnDialogClosed(PresentedDialog, DialogClosed)` for `ShowDialog` dialogs. `PresentedDialog.TryComplete(value)`
   and `TryCancel()` answer a dialog from code (tests, automation). `DialogObservers.Open` lists open dialogs.
-- `ShellTabBadgeManager.Values` / `Get(route)` - read back badge values.
+- `ShellTabBadgeManager.Values` / `Get(route)` - read back badge text (`""` = dot, null = none).
 
 ### 4a. Navigation Interceptors (guards)
 
@@ -639,11 +642,27 @@ await navigator.ClearTabBadge("Inbox");
 // ViewModel-based badge updates
 await navigator.SetTabBadge<InboxViewModel>(7);
 await navigator.ClearTabBadge<InboxViewModel>();
+
+// Text, or "" for a dot
+await navigator.SetTabBadge("Inbox", "New");
+await navigator.SetTabBadge<InboxViewModel>("");
 ```
 
 - Badge APIs target existing tabs in the active Shell, not arbitrary pushed pages
-- Supported platforms: Android, iOS, Mac Catalyst, Windows
-- Unsupported platforms currently throw `PlatformNotSupportedException` (neutral target, Linux, macOS AppKit)
+- They set MAUI 11 `BadgeText` on the tab's `ShellSection` - rendered on Android, iOS, Mac Catalyst, Windows (non-numeric text is a dot there); no-op elsewhere, never throws `PlatformNotSupportedException`
+- Colors are XAML: `BadgeColor` / `BadgeTextColor` on the `Tab`. Do not generate color parameters for `SetTabBadge`
+- Do not bind `BadgeText` in XAML on a tab that is also driven by `SetTabBadge`
+
+**Toolbar badges** are not an `INavigator` API: bind `ToolbarItem.BadgeText` to a ViewModel property (`string?` - `null` hides, `""` is a dot):
+
+```xml
+<ContentPage.ToolbarItems>
+    <ToolbarItem Text="Inbox"
+                 Command="{Binding OpenInboxCommand}"
+                 BadgeText="{Binding UnreadCount}"
+                 BadgeColor="Red" />
+</ContentPage.ToolbarItems>
+```
 
 ### 5c. XAML Navigation
 

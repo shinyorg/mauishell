@@ -23,7 +23,7 @@ Inspired by [Prism Library](https://prismlibrary.com) by Dan Siegel and Brian La
 | Root navigation | `NavigateTo<DashboardViewModel>(relativeNavigation: false)` — reset the stack |
 | Navigation builder | Fluent multi-segment: `CreateBuilder().AddDetail(42).AddModal().Navigate()` |
 | Shell switching | `SwitchShell(new MainShell())` or `SwitchShell<TShell>()` via DI |
-| Tab badges | Numeric tab badges via route or ViewModel — `SetTabBadge<InboxViewModel>(3)` |
+| Tab badges | Count, text or dot badges on tabs via route or ViewModel — `SetTabBadge<InboxViewModel>(3)` (MAUI 11 `BadgeText`) |
 | XAML navigation | Attached properties on `Button`, `MenuItem`, and `ToolbarItem` |
 
 ### 🛡️ Navigation Interceptors — `INavigationInterceptor`
@@ -211,9 +211,11 @@ public class MyViewModel(INavigator navigator)
     // Switch to a Shell resolved from DI
     await navigator.SwitchShell<MainAppShell>();
 
-    // Set or clear a numeric badge on a tab in the active Shell
+    // Set or clear a badge on a tab in the active Shell - a count, text, or "" for a dot
     await navigator.SetTabBadge("Inbox", 3);
     await navigator.SetTabBadge<InboxViewModel>(7);
+    await navigator.SetTabBadge("Inbox", "New");
+    await navigator.SetTabBadge("Inbox", "");
     await navigator.ClearTabBadge("Inbox");
     await navigator.ClearTabBadge<InboxViewModel>();
 
@@ -247,7 +249,20 @@ public class MyViewModel(INavigator navigator)
 > If you're setting arguments on the ViewModel navigation, you should make them observable if they are bound on the Page.
 
 > [!IMPORTANT]
-> Tab badges only work for routes that are already present as tabs in the active Shell. The badge APIs are supported on Android, iOS, Mac Catalyst, and Windows. Linux and macOS AppKit throw `PlatformNotSupportedException`.
+> Tab badges only work for routes that are already present as tabs in the active Shell. They set MAUI 11's `BaseShellItem.BadgeText` on the tab's `ShellSection`, so they render wherever MAUI draws Shell badges (Android, iOS, Mac Catalyst, Windows - Windows shows non-numeric text as a dot) and are a harmless no-op elsewhere. Style the badge with `BadgeColor` / `BadgeTextColor` on the `Tab` in XAML (the iOS 27 tab bar currently draws its own red whatever the color), and don't also bind `BadgeText` on a tab you drive with `SetTabBadge`.
+
+#### Toolbar badges
+
+Toolbar items belong to the page, so the ViewModel drives their MAUI 11 badge with a binding - no `INavigator` call needed. `null` hides it, `""` shows a dot:
+
+```xml
+<ContentPage.ToolbarItems>
+    <ToolbarItem Text="Inbox"
+                 Command="{Binding OpenInboxCommand}"
+                 BadgeText="{Binding UnreadCount}"
+                 BadgeColor="Red" />
+</ContentPage.ToolbarItems>
+```
 
 ### 4.1 XAML Navigation
 
@@ -660,7 +675,7 @@ reported; `IDialogs` alerts belong to whichever `IDialogs` implementation is reg
 ### Tab badge values
 
 `ShellTabBadgeManager` (in DI) reads back what `SetTabBadge` set: `Values` is a snapshot keyed by
-tab route, and `Get("inbox")` returns one badge or null.
+tab route, and `Get("inbox")` returns one badge's text (`""` for a dot) or null.
 
 ---
 
