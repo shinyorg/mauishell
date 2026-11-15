@@ -7,7 +7,7 @@ namespace Shiny.Infrastructure;
 /// so every platform MAUI draws badges on gets them. Colors are left alone - style them with
 /// <see cref="BaseShellItem.BadgeColor"/> / <see cref="BaseShellItem.BadgeTextColor"/> in XAML.
 /// </summary>
-public sealed class ShellTabBadgeManager(IMainThread mainThread)
+public sealed class ShellTabBadgeManager
 {
     readonly Dictionary<string, string> badgeValues = new(StringComparer.Ordinal);
     readonly Lock sync = new();
@@ -55,7 +55,7 @@ public sealed class ShellTabBadgeManager(IMainThread mainThread)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        return mainThread.InvokeOnMainThreadAsync(() =>
+        return MainThread.InvokeOnMainThreadAsync(() =>
         {
             var normalizedRoute = NormalizeRoute(route);
             var section = ResolveSection(normalizedRoute);
@@ -67,7 +67,7 @@ public sealed class ShellTabBadgeManager(IMainThread mainThread)
     }
 
 
-    public Task Clear(string route) => mainThread.InvokeOnMainThreadAsync(() =>
+    public Task Clear(string route) => MainThread.InvokeOnMainThreadAsync(() =>
     {
         var normalizedRoute = NormalizeRoute(route);
         var section = ResolveSection(normalizedRoute);

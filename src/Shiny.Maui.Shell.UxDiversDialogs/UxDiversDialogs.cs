@@ -5,7 +5,7 @@ using Shiny.Infrastructure;
 
 namespace Shiny;
 
-public class UxDiversDialogs(IMainThread mainThread) : IDialogs
+public class UxDiversDialogs : IDialogs
 {
     // NOTE: PopupServiceCore raises PopupClosed *inside* PopAsync (before its task completes).
     // Each action command must therefore unsubscribe OnPopupClosed before popping and resolve
@@ -13,7 +13,7 @@ public class UxDiversDialogs(IMainThread mainThread) : IDialogs
     // (tap-outside / back button), where it falls back to the cancel/default value.
 
     public Task Alert(string? title, string message, string acceptText = "OK")
-        => mainThread.InvokeOnMainThreadAsync(async () =>
+        => MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var tcs = new TaskCompletionSource();
             SimpleActionPopup popup = null!;
@@ -42,7 +42,7 @@ public class UxDiversDialogs(IMainThread mainThread) : IDialogs
 
 
     public Task<bool> Confirm(string? title, string message, string acceptText = "Yes", string cancelText = "No")
-        => mainThread.InvokeOnMainThreadAsync(async () =>
+        => MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var tcs = new TaskCompletionSource<bool>();
             SimpleActionPopup popup = null!;
@@ -85,7 +85,7 @@ public class UxDiversDialogs(IMainThread mainThread) : IDialogs
         string initialValue = "",
         int maxLength = -1,
         Keyboard? keyboard = null
-    ) => mainThread.InvokeOnMainThreadAsync(async () =>
+    ) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         var field = new FormField
         {
@@ -127,7 +127,7 @@ public class UxDiversDialogs(IMainThread mainThread) : IDialogs
 
 
     public Task<string> ActionSheet(string? title, string? cancel, string? destruction, params string[] buttons)
-        => mainThread.InvokeOnMainThreadAsync(async () =>
+        => MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var tcs = new TaskCompletionSource<string>();
             var items = new List<OptionSheetItem>();

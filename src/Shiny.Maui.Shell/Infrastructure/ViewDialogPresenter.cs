@@ -29,12 +29,8 @@ namespace Shiny.Infrastructure;
 /// and keeps its own lifecycle - it neither disappears when the dialog opens nor reappears when it
 /// closes.
 /// </remarks>
-public abstract class ViewDialogPresenter(IMainThread mainThread) : IDialogPresenter
+public abstract class ViewDialogPresenter : IDialogPresenter
 {
-    /// <summary>The main thread dispatcher, for subclasses that need to marshal teardown.</summary>
-    protected IMainThread MainThread { get; } = mainThread;
-
-
     public Task Present(Page page, object viewModel, CancellationToken dismiss)
     {
         if (page is not ContentPage contentPage)
@@ -42,7 +38,7 @@ public abstract class ViewDialogPresenter(IMainThread mainThread) : IDialogPrese
                 $"{this.GetType().Name} presents a page's content, so the dialog page must be a ContentPage - '{page.GetType().FullName}' is not. Use the default ShellModalDialogPresenter for it."
             );
 
-        return this.MainThread.InvokeOnMainThreadAsync(async () =>
+        return MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var content = contentPage.Content
                 ?? throw new InvalidOperationException($"Dialog page '{page.GetType().FullName}' has no Content to present");

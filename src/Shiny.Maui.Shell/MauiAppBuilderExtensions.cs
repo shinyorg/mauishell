@@ -24,7 +24,6 @@ public static class MauiAppBuilderExtensions
             if (!builder.Services.Any(x => x.ImplementationType == typeof(ShinyShellNavigator)))
             {
                 builder.Services.AddSingleton(navBuilder);
-                builder.Services.TryAddSingleton<IMainThread, MauiMainThread>();
                 builder.Services.TryAddSingleton<IDialogs, ShellDialogs>();
                 builder.Services.TryAddSingleton<IDialogPresenter, ShellModalDialogPresenter>();
                 builder.Services.AddSingleton<ShellTabBadgeManager>();

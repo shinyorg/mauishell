@@ -330,10 +330,8 @@ the detached content, raising `IPageLifecycleAware`, disposing an `IDisposable` 
 the content back to its page.
 
 ```csharp
-public abstract class ViewDialogPresenter(IMainThread mainThread) : IDialogPresenter
+public abstract class ViewDialogPresenter : IDialogPresenter
 {
-    protected IMainThread MainThread { get; }
-
     // Called on the main thread, binding context already set. Complete once the content
     // is gone; detach it from your host before returning. Never throw on `dismiss`.
     protected abstract Task PresentView(View content, object viewModel, CancellationToken dismiss);
@@ -1115,13 +1113,12 @@ For multiple parameters:
 
 ## ShellServices Record
 
-A convenience aggregate that bundles the three shell services together, so a single constructor parameter is enough when a class needs most of them.
+A convenience aggregate that bundles the shell services together, so a single constructor parameter is enough when a class needs both.
 
 ```csharp
 public record ShellServices(
     INavigator Navigator,
-    IDialogs Dialogs,
-    IMainThread MainThread
+    IDialogs Dialogs
 );
 ```
 
@@ -1132,28 +1129,13 @@ public class MyViewModel(ShellServices shell)
 {
     async Task DoWork()
     {
-        shell.MainThread.BeginInvokeOnMainThread(() => /* UI update */);
         await shell.Dialogs.Alert("Done", "Work complete");
         await shell.Navigator.GoBack();
     }
 }
 ```
 
-## IMainThread Interface
-
-Thread-marshalling abstraction used internally by `ShellNavigator` and `ShellDialogs`. Prefer this over `Microsoft.Maui.ApplicationModel.MainThread` inside Shiny Shell code because the default implementation (`MauiMainThread`) transparently works around platforms where MAUI's `MainThread` is missing or broken: on the `net11.0-macos` (AppKit) target it dispatches to `DispatchQueue.MainQueue` directly (inline when already on the main thread) — no `Microsoft.Maui.Platforms.MacOS.Essentials` dependency; on Linux the delegate executes inline. Every other platform delegates to MAUI's `MainThread`.
-
-```csharp
-public interface IMainThread
-{
-    Task InvokeOnMainThreadAsync(Action action);
-    Task InvokeOnMainThreadAsync(Func<Task> func);
-    Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> func);
-    void BeginInvokeOnMainThread(Action action);
-}
-```
-
-Registered as a singleton by `UseShinyShell()` with the default `MauiMainThread` implementation.
+Shiny Shell marshals to the UI thread with MAUI's `MainThread`; there is no `IMainThread` (removed in v8).
 
 ## Extension Method
 
@@ -1171,8 +1153,7 @@ public static MauiAppBuilder UseShinyShell(
 Registers:
 - `INavigator` as singleton
 - `IDialogs` as singleton (default `ShellDialogs`, replaceable via `UseDialogs<>()`)
-- `IMainThread` as singleton (default `MauiMainThread`)
-- `ShellServices` as singleton (aggregate of `INavigator`, `IDialogs`, `IMainThread`)
+- `ShellServices` as singleton (aggregate of `INavigator`, `IDialogs`)
 - `IMauiInitializeService` for lifecycle hooks
 - `ShinyAppBuilder` as singleton
 - All mapped Pages and ViewModels as transient

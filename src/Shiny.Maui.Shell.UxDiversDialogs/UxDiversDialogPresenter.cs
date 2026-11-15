@@ -21,8 +21,8 @@ namespace Shiny;
 /// hardware back button, which UXDivers Popups maps to closing the topmost popup unless
 /// <c>UseUXDiversPopups(closePopupOnBackAndroid: false)</c> says otherwise.</para>
 /// </remarks>
-public class UxDiversDialogPresenter(IMainThread mainThread, UxDiversDialogPresenterOptions options)
-    : ViewDialogPresenter(mainThread)
+public class UxDiversDialogPresenter(UxDiversDialogPresenterOptions options)
+    : ViewDialogPresenter
 {
     const string BackdropColorKey = "PopupBackdropColor";
     const string CardColorKey = "PopupBorderColor";

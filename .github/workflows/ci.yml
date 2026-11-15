@@ -1,7 +1,7 @@
 name: CI
 
-# Every push to main, and every pull request into it: the unit tests, then the packages built the way the release
-# builds them (Release, all heads), without publishing anything. Toolchain pins match release.yml - bump them together.
+# Every push to main, and every pull request into it: the packages built the way the release
+# builds them (Release, all heads), then the unit tests, without publishing anything. Toolchain pins match release.yml - bump them together.
 on:
   push:
     branches: [ main ]
@@ -23,21 +23,9 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  test:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      # plain net11.0 - no workload. The UI tests drive the Sample app on a device, so they stay local.
-      - name: Unit tests
-        run: dotnet test tests/Shiny.Maui.Shell.Tests -c Release
-
   build:
-    # Windows so the windows10.0.19041.0 head is part of the build
+    # Windows so the windows10.0.19041.0 head is part of the build. The unit tests run here too: they reference
+    # Shiny.Maui.Shell, whose restore needs the workloads for every head.
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -49,3 +37,7 @@ jobs:
 
       - name: Build
         run: dotnet build Build.slnf /restore -m -c Release
+
+      # The UI tests drive the Sample app on a device, so they stay local.
+      - name: Unit tests
+        run: dotnet test tests/Shiny.Maui.Shell.Tests -c Release

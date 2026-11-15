@@ -9,16 +9,16 @@ namespace Shiny;
 /// default <c>ShellDialogs</c> (which uses the native platform alert/prompt), these dialogs
 /// are rendered by the library so they look identical across platforms.
 /// </summary>
-public class ShinyDialogs(IDialogService dialogs, IMainThread mainThread) : IDialogs
+public class ShinyDialogs(IDialogService dialogs) : IDialogs
 {
     public Task Alert(string? title, string message, string acceptText = "OK")
-        => mainThread.InvokeOnMainThreadAsync(() =>
+        => MainThread.InvokeOnMainThreadAsync(() =>
             dialogs.Alert(title ?? String.Empty, message, acceptText)
         );
 
 
     public Task<bool> Confirm(string? title, string message, string acceptText = "Yes", string cancelText = "No")
-        => mainThread.InvokeOnMainThreadAsync(() =>
+        => MainThread.InvokeOnMainThreadAsync(() =>
             dialogs.Confirm(title ?? String.Empty, message, acceptText, cancelText)
         );
 
@@ -32,7 +32,7 @@ public class ShinyDialogs(IDialogService dialogs, IMainThread mainThread) : IDia
         string initialValue = "",
         int maxLength = -1,
         Keyboard? keyboard = null
-    ) => mainThread.InvokeOnMainThreadAsync(async () =>
+    ) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         var result = await dialogs.Prompt(
             title ?? String.Empty,
@@ -49,7 +49,7 @@ public class ShinyDialogs(IDialogService dialogs, IMainThread mainThread) : IDia
 
 
     public Task<string> ActionSheet(string? title, string? cancel, string? destruction, params string[] buttons)
-        => mainThread.InvokeOnMainThreadAsync(async () =>
+        => MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var result = await dialogs.ActionSheet(
                 title ?? String.Empty,

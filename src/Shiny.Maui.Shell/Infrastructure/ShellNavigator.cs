@@ -5,7 +5,6 @@ namespace Shiny.Infrastructure;
 
 public class ShinyShellNavigator(
     ILogger<ShinyShellNavigator> logger,
-    IMainThread mainThread,
     ShinyAppBuilder navBuilder,
     ShellTabBadgeManager tabBadgeManager,
     ShellNavigationConfigurator configurator,
@@ -156,7 +155,7 @@ public class ShinyShellNavigator(
 
 
     internal Task<bool> RunNavigation(NavigationRequest request)
-        => mainThread.InvokeOnMainThreadAsync(() => this.RunNavigationCore(request));
+        => MainThread.InvokeOnMainThreadAsync(() => this.RunNavigationCore(request));
 
 
     /// <summary>
@@ -489,7 +488,7 @@ public class ShinyShellNavigator(
             // Resolve and bind the page on the main thread - InitializeComponent is not safe to run
             // off it. Normal navigation gets this for free because Shell constructs the page itself
             // inside GoToAsync; here we own the instance so we own the dispatch.
-            var page = await mainThread
+            var page = await MainThread
                 .InvokeOnMainThreadAsync(() =>
                 {
                     var resolved = (Page)services.GetRequiredService(pageType);
@@ -627,7 +626,7 @@ public class ShinyShellNavigator(
         // native window (UIWindow on iOS) into a clean state — avoiding the crash in
         // ShellFlyoutRenderer.ViewDidLoad that occurs when a new Shell handler is
         // created while the old Shell's native view hierarchy is still active.
-        await mainThread.InvokeOnMainThreadAsync(() =>
+        await MainThread.InvokeOnMainThreadAsync(() =>
         {
             var window = app.Windows[0];
             if (window.Page?.Handler is IElementHandler oldHandler)
@@ -642,7 +641,7 @@ public class ShinyShellNavigator(
         await Task.Delay(50).ConfigureAwait(false);
 
         // Now set the actual Shell in a clean window state
-        await mainThread.InvokeOnMainThreadAsync(() =>
+        await MainThread.InvokeOnMainThreadAsync(() =>
         {
             var window = app.Windows[0];
             window.Page = shell;
@@ -695,7 +694,7 @@ public class ShinyShellNavigator(
         var uri = String.Join("/", Enumerable.Repeat("..", backCount));
         var parameters = args.ToDictionary(x => x.Key, x => x.Value);
 
-        return mainThread.InvokeOnMainThreadAsync(() =>
+        return MainThread.InvokeOnMainThreadAsync(() =>
         {
             // Going back lands on a page that already exists, so interceptors get the ViewModel
             // off the navigation stack rather than a freshly built one - and it is never pinned.
@@ -858,7 +857,7 @@ public class ShinyShellNavigator(
         // cancelled, and starting the next one on top of that is how you get a Shell that has
         // moved but thinks it hasn't. The interceptors have already approved this destination, so
         // it goes straight to ExecuteNavigation rather than round the pipeline again.
-        mainThread.BeginInvokeOnMainThread(async () =>
+        MainThread.BeginInvokeOnMainThread(async () =>
         {
             try
             {

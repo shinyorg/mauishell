@@ -24,7 +24,7 @@ namespace Shiny.Infrastructure;
 /// page's XAML says, and hands the navigator the exact page instance so there is no
 /// <see cref="ShellNavigationConfigurator"/> pinning race.
 /// </remarks>
-public class ShellModalDialogPresenter(IMainThread mainThread) : IDialogPresenter
+public class ShellModalDialogPresenter : IDialogPresenter
 {
     public async Task Present(Page page, object viewModel, CancellationToken dismiss)
     {
@@ -51,7 +51,7 @@ public class ShellModalDialogPresenter(IMainThread mainThread) : IDialogPresente
         page.ParentChanged += OnParentChanged;
         try
         {
-            await mainThread
+            await MainThread
                 .InvokeOnMainThreadAsync(() => navigation.PushModalAsync(page, true))
                 .ConfigureAwait(false);
 
@@ -65,7 +65,7 @@ public class ShellModalDialogPresenter(IMainThread mainThread) : IDialogPresente
 
             if (!detached.Task.IsCompleted)
             {
-                await mainThread.InvokeOnMainThreadAsync(async () =>
+                await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     // PopModalAsync always pops the top of the stack, so only pop when this page is
                     // the top. The user may also have dismissed it between WhenAny resolving and

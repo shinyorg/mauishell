@@ -89,7 +89,6 @@ triggers:
   - ShinyShell
   - ShellServices
   - ShinyAppBuilder
-  - IMainThread
   - Shiny.Maui.Shell
   - IPageLifecycleAware
   - INavigationConfirmation
@@ -197,8 +196,7 @@ Shiny MAUI Shell wraps .NET MAUI Shell to provide:
 - `INavigationInterceptor` guards that can cancel or redirect any navigation - including app links, shortcuts and tab taps
 - Source generators that eliminate boilerplate route registration, produce strongly-typed navigation methods, and generate AI tool metadata
 - `ShinyShell` base class for deterministic initial-page BindingContext assignment
-- `ShellServices` record that aggregates `INavigator`, `IDialogs`, and `IMainThread` for convenient single-parameter injection
-- `IMainThread` abstraction that works on every target — including `net11.0-macos` (AppKit, via `NSThread`/GCD directly — no extra package) and Linux (runs inline), where MAUI's `MainThread` is missing or broken
+- `ShellServices` record that aggregates `INavigator` and `IDialogs` for convenient single-parameter injection
 - Pluggable `IDialogs` implementation via `UseDialogs<TDialog>()` — swap in your own dialog provider (e.g. ACR UserDialogs, a custom sheet, a test double)
 
 Inspired by [Prism Library](https://prismlibrary.com) by Dan Siegel and Brian Lagunas.
@@ -988,7 +986,7 @@ instead of implementing the interface directly — it unwraps the page, sets the
 `IPageLifecycleAware`, disposes the ViewModel and restores the content afterwards:
 
 ```csharp
-public class MySheetPresenter(IMainThread mainThread) : ViewDialogPresenter(mainThread)
+public class MySheetPresenter : ViewDialogPresenter
 {
     // called on the main thread; detach `content` from your host before returning
     protected override async Task PresentView(View content, object viewModel, CancellationToken dismiss)
@@ -996,41 +994,29 @@ public class MySheetPresenter(IMainThread mainThread) : ViewDialogPresenter(main
 }
 ```
 
-### 7. ShellServices Aggregate & IMainThread
+### 7. ShellServices Aggregate
 
-`ShellServices` is a convenience record that bundles the three shell services together. Inject it when a ViewModel or service needs most of them and you want a single parameter:
+`ShellServices` is a convenience record that bundles the shell services together. Inject it when a ViewModel or service needs both and you want a single parameter:
 
 ```csharp
 public record ShellServices(
     INavigator Navigator,
-    IDialogs Dialogs,
-    IMainThread MainThread
+    IDialogs Dialogs
 );
 
 public class MyViewModel(ShellServices shell)
 {
     async Task DoWork()
     {
-        shell.MainThread.BeginInvokeOnMainThread(() => /* UI update */);
         await shell.Dialogs.Alert("Done", "Work complete");
         await shell.Navigator.GoBack();
     }
 }
 ```
 
-`IMainThread` is the thread-marshalling abstraction used internally by `ShellNavigator` and `ShellDialogs`. Prefer it over `Microsoft.Maui.ApplicationModel.MainThread` inside Shiny Shell code because the default implementation (`MauiMainThread`) transparently works around platforms where MAUI's `MainThread` is missing or broken: on the `net11.0-macos` (AppKit) target it dispatches to `DispatchQueue.MainQueue` directly (running inline when already on the main thread) — no `Microsoft.Maui.Platforms.MacOS.Essentials` dependency; on Linux the delegate runs inline. Every other platform delegates to MAUI's `MainThread`.
+`ShellServices` is registered as a singleton by `UseShinyShell()` — no extra setup required.
 
-```csharp
-public interface IMainThread
-{
-    Task InvokeOnMainThreadAsync(Action action);
-    Task InvokeOnMainThreadAsync(Func<Task> func);
-    Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> func);
-    void BeginInvokeOnMainThread(Action action);
-}
-```
-
-Both `ShellServices` and `IMainThread` are registered as singletons by `UseShinyShell()` — no extra setup required.
+For main-thread marshalling use MAUI's own `MainThread` (`Microsoft.Maui.ApplicationModel`). Shiny Shell has no thread abstraction of its own (`IMainThread` was removed in v8) — never generate `IMainThread`, `MauiMainThread` or `shell.MainThread`.
 
 ### 8. Modal Pages
 

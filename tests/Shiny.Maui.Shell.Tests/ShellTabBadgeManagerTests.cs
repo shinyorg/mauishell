@@ -9,15 +9,7 @@ namespace Shiny.Maui.Shell.Tests;
 /// </summary>
 public class ShellTabBadgeManagerTests
 {
-    class InlineMainThread : IMainThread
-    {
-        public Task InvokeOnMainThreadAsync(Action action) { action(); return Task.CompletedTask; }
-        public Task InvokeOnMainThreadAsync(Func<Task> func) => func();
-        public Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> func) => func();
-        public void BeginInvokeOnMainThread(Action action) => action();
-    }
-
-    static ShellTabBadgeManager Build() => new(new InlineMainThread());
+    static ShellTabBadgeManager Build() => new();
 
 
     [Fact]

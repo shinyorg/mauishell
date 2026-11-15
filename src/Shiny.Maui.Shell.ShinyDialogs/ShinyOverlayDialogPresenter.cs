@@ -24,8 +24,8 @@ namespace Shiny;
 /// navigation away (an Android back press, a tab switch, a programmatic <c>GoBack</c>) takes the
 /// dialog with it, and the awaiting caller has to be released rather than left hanging.</para>
 /// </remarks>
-public class ShinyOverlayDialogPresenter(IMainThread mainThread, ShinyDialogPresenterOptions options)
-    : ViewDialogPresenter(mainThread)
+public class ShinyOverlayDialogPresenter(ShinyDialogPresenterOptions options)
+    : ViewDialogPresenter
 {
     static readonly Color FallbackSurfaceLight = Color.FromArgb("#FFFFFF");
     static readonly Color FallbackSurfaceDark = Color.FromArgb("#1C1B1F");

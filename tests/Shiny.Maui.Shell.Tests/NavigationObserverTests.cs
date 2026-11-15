@@ -62,13 +62,6 @@ public class NavigationObserverTests
 
 
     /// <summary>Runs everything inline - there is no UI thread in a test.</summary>
-    class InlineMainThread : IMainThread
-    {
-        public Task InvokeOnMainThreadAsync(Action action) { action(); return Task.CompletedTask; }
-        public Task InvokeOnMainThreadAsync(Func<Task> func) => func();
-        public Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> func) => func();
-        public void BeginInvokeOnMainThread(Action action) => action();
-    }
 
 
     static NavigationObservers BuildObservers(params INavigationObserver[] observers)
@@ -96,12 +89,10 @@ public class NavigationObserverTests
             services.AddSingleton(interceptor);
         var sp = services.BuildServiceProvider();
 
-        var mainThread = new InlineMainThread();
         var navigator = new ShinyShellNavigator(
             NullLogger<ShinyShellNavigator>.Instance,
-            mainThread,
             appBuilder,
-            new ShellTabBadgeManager(mainThread),
+            new ShellTabBadgeManager(),
             new ShellNavigationConfigurator(),
             new NavigationInterceptorPipeline(
                 NullLogger<NavigationInterceptorPipeline>.Instance,
