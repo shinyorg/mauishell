@@ -64,7 +64,8 @@ public class NavigatorContractTests
     {
         var path = Path.Combine(FindRepoRoot(), "src", "Shiny.Maui.Shell", "Infrastructure", fileName);
         File.Exists(path).ShouldBeTrue($"Expected source file at '{path}'.");
-        return File.ReadAllText(path);
+        // a Windows checkout has CRLF line endings - the multi-line snippets below are written with LF
+        return File.ReadAllText(path).ReplaceLineEndings("\n");
     }
 
     [Fact]
