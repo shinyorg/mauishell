@@ -4,8 +4,6 @@
         <File Path="Directory.Build.props" />
         <File Path="Directory.Build.targets" />
         <File Path="LICENSE" />
-        <File Path="version.json" />
-        <File Path=".github\workflows\build.yml" />
         <File Path=".github\PULL_REQUEST_TEMPLATE.md" />
         <File Path=".github\ISSUE_TEMPLATE\bug_report.yml" />
         <File Path=".github\ISSUE_TEMPLATE\feature_request.yml" />

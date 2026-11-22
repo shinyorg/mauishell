@@ -25,6 +25,6 @@
     <ItemGroup>
         <!-- UI tests (tests/Sample.UITests): the in-app agent the Sample references in Debug. Keep the
              `maui devflow` CLI on the same version (dotnet tool update -g Microsoft.Maui.Cli). -->
-        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.13.26526.5" />
+        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.14.26567.2" />
     </ItemGroup>
 </Project>
