@@ -361,6 +361,7 @@ public partial class DetailViewModel : ObservableObject
 
 - Properties marked `[ShellProperty]` are required by default
 - Use `[ShellProperty(required: false)]` for optional parameters
+- An optional property of a non-nullable reference type becomes a nullable parameter (`string? sort = null`); leaving the argument out keeps the viewmodel's own initializer rather than assigning `null`. Value types default to `default` and are always assigned
 - `[ShellProperty]` properties are set directly by the source-generated navigation methods — no `IQueryAttributable` needed
 - Source generator creates strongly-typed extension methods on `INavigator`
 
@@ -735,7 +736,7 @@ Additionally, `GetGeneratedRouteInfo()` remains as a static extension on `INavig
 
 A generated `AddAiTools()` extension on `ShinyAppBuilder` registers the class as a singleton.
 
-**Wire up AI tools (enabled by default when `Microsoft.Extensions.AI` is referenced):**
+**Wire up AI tools (opt-in: set `ShinyMauiShell_GenerateAiExtensions` to `true` and reference `Microsoft.Extensions.AI`):**
 
 ```csharp
 // MauiProgram.cs
@@ -1076,10 +1077,10 @@ Only emitted for `[ShellMap]` ViewModels that also implement `IDialogAware<T>`. 
 public static class DialogExtensions
 {
     public static Task<DialogResult<string>> ShowPickColorDialog(this INavigator navigator,
-        string preset = null,
+        string? preset = null,
         CancellationToken cancellationToken = default)
     {
-        return navigator.ShowDialog<PickColorViewModel, string>(x => { x.Preset = preset; }, cancellationToken);
+        return navigator.ShowDialog<PickColorViewModel, string>(x => { if (preset is not null) x.Preset = preset; }, cancellationToken);
     }
 }
 ```
@@ -1123,8 +1124,8 @@ Disable individual generated files via MSBuild properties in `.csproj`:
     <!-- Disable NavigationExtensions.g.cs and DialogExtensions.g.cs -->
     <ShinyMauiShell_GenerateNavExtensions>false</ShinyMauiShell_GenerateNavExtensions>
 
-    <!-- Disable AI extensions (enabled by default, requires Microsoft.Extensions.AI) -->
-    <ShinyMauiShell_GenerateAiExtensions>false</ShinyMauiShell_GenerateAiExtensions>
+    <!-- Enable AI extensions (opt-in, requires Microsoft.Extensions.AI) -->
+    <ShinyMauiShell_GenerateAiExtensions>true</ShinyMauiShell_GenerateAiExtensions>
 
     <!-- Customize the generated AI tools class name (default: AiMauiShellTools) -->
     <ShinyMauiShell_AiToolsClassName>MyAppAiTools</ShinyMauiShell_AiToolsClassName>
@@ -1141,7 +1142,7 @@ Disable individual generated files via MSBuild properties in `.csproj`:
 |---|---|---|
 | `ShinyMauiShell_GenerateRouteConstants` | `true` | `Routes.g.cs` |
 | `ShinyMauiShell_GenerateNavExtensions` | `true` | All navigation extensions and `AddGeneratedMaps` |
-| `ShinyMauiShell_GenerateAiExtensions` | `true` | `AiMauiShellTools` class, `AddAiTools()`, `GetAiToolApplicableGeneratedRoutes`, `NavigateToRoute`, and `Prompt`. Requires `Microsoft.Extensions.AI` (**SHINY003** error if missing). Set to `false` to disable |
+| `ShinyMauiShell_GenerateAiExtensions` | `false` | `AiMauiShellTools` class, `AddAiTools()`, `GetAiToolApplicableGeneratedRoutes`, `NavigateToRoute`, and `Prompt`. Opt-in: set to `true` to generate them. Requires `Microsoft.Extensions.AI` (**SHINY003** error if missing) |
 | `ShinyMauiShell_AiToolsClassName` | `AiMauiShellTools` | Class name for the generated AI tools class |
 | `ShinyMauiShell_AiExtensionsClassName` | `AiExtensions` | Class name for the static route info extensions class |
 | `ShinyMauiShell_AiNavigateMethodName` | `NavigateToRoute` | Method name for the AI-friendly navigate method |

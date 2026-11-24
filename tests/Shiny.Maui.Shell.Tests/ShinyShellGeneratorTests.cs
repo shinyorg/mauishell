@@ -82,12 +82,27 @@ namespace Microsoft.Maui.Controls
     public class Page { }
 }
 
+namespace Shiny.Infrastructure
+{
+    public partial class ShinyShellJsonContext : System.Text.Json.Serialization.JsonSerializerContext
+    {
+        public ShinyShellJsonContext() : base(null) { }
+        public static ShinyShellJsonContext Default { get; } = new();
+        protected override System.Text.Json.JsonSerializerOptions GeneratedSerializerOptions => null;
+        public override System.Text.Json.Serialization.Metadata.JsonTypeInfo GetTypeInfo(Type type) => null;
+    }
+}
+
 namespace Microsoft.Extensions.AI
 {
     public class AITool { }
     public static class AIFunctionFactory
     {
-        public static AITool Create(Delegate func, string name = null, string description = null) => new AITool();
+        public static AITool Create(Delegate func, string name = null, string description = null, System.Text.Json.JsonSerializerOptions serializerOptions = null) => new AITool();
+    }
+    public static class AIJsonUtilities
+    {
+        public static System.Text.Json.JsonSerializerOptions DefaultOptions { get; } = new();
     }
 }
 ";
@@ -1555,8 +1570,8 @@ namespace TestApp
         var dialogSource = GetGeneratedSource(result, "DialogExtensions.g.cs");
 
         // required first, then optional with a default, then the token - all defaults trailing
-        dialogSource.ShouldContain("ShowConfirmDialog(this global::Shiny.INavigator navigator, string message, string acceptText = null, global::System.Threading.CancellationToken cancellationToken = default)");
-        dialogSource.ShouldContain("x.Message = message; x.AcceptText = acceptText;");
+        dialogSource.ShouldContain("ShowConfirmDialog(this global::Shiny.INavigator navigator, string message, string? acceptText = null, global::System.Threading.CancellationToken cancellationToken = default)");
+        dialogSource.ShouldContain("x.Message = message; if (acceptText is not null) x.AcceptText = acceptText;");
         dialogSource.ShouldContain("global::Shiny.DialogResult<bool>");
     }
 
@@ -2102,6 +2117,132 @@ namespace TestApp
     }
 
     #endregion
+
+    #region Optional parameters
+
+    const string OptionalPropertiesSource = @"
+#nullable enable
+
+namespace TestApp
+{
+    public class Filter { }
+    public class SearchPage : Microsoft.Maui.Controls.Page { }
+
+    [ShellMap<SearchPage>(""Search"")]
+    public class SearchViewModel : System.ComponentModel.INotifyPropertyChanged
+    {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        [ShellProperty]
+        public string Query { get; set; } = """";
+
+        [ShellProperty(required: false)]
+        public string Sort { get; set; } = ""Relevance"";
+
+        [ShellProperty(required: false)]
+        public string? Tab { get; set; }
+
+        [ShellProperty(required: false)]
+        public Filter Filter { get; set; } = new();
+
+        [ShellProperty(required: false)]
+        public int Page { get; set; }
+    }
+}";
+
+    [Fact]
+    public void OptionalReferenceParameters_AreNullable()
+    {
+        var result = RunGenerator(StubTypes + OptionalPropertiesSource);
+        var navSource = GetGeneratedSource(result, "NavigationExtensions.g.cs");
+
+        // A non-nullable reference type can't default to null without CS8625; any non-string class
+        // used to get "= default", which is the same null.
+        navSource.ShouldContain("string query, string? sort = null, string? tab = null, TestApp.Filter? filter = null, int page = default");
+    }
+
+    [Fact]
+    public void OmittedOptionalReferenceArguments_KeepTheViewModelInitializer()
+    {
+        var result = RunGenerator(StubTypes + OptionalPropertiesSource);
+        var navSource = GetGeneratedSource(result, "NavigationExtensions.g.cs");
+        var builderSource = GetGeneratedSource(result, "NavigationBuilderNavExtensions.g.cs");
+
+        // Sort and Filter have initializers an omitted argument must not overwrite with null; a
+        // nullable property (Tab) and a value type (Page) are assigned as before.
+        const string assignments = "x.Query = query; if (sort is not null) x.Sort = sort; x.Tab = tab; if (filter is not null) x.Filter = filter; x.Page = page;";
+        navSource.ShouldContain(assignments);
+        builderSource.ShouldContain(assignments);
+    }
+
+    [Fact]
+    public void GeneratedNavigationCode_HasNoNullabilityWarnings()
+    {
+        var compilation = RunGeneratorAndCompile(OptionalPropertiesSource);
+        var generated = compilation.SyntaxTrees.Where(t => t.FilePath.EndsWith(".g.cs")).ToList();
+        generated.ShouldNotBeEmpty();
+
+        var warnings = compilation.GetDiagnostics()
+            .Where(d => d.Id.StartsWith("CS86") && generated.Contains(d.Location.SourceTree))
+            .Select(d => d.ToString())
+            .ToList();
+        warnings.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void AiTools_UseTheLibrarysJsonContext()
+    {
+        var source = StubTypes + @"
+
+namespace TestApp
+{
+    public class OrderPage : Microsoft.Maui.Controls.Page { }
+
+    [ShellMap<OrderPage>(""Order"", description: ""Use when the user wants to see an order"")]
+    public class OrderViewModel : System.ComponentModel.INotifyPropertyChanged
+    {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        [ShellProperty(""The order id"")]
+        public string OrderId { get; set; }
+    }
+}";
+        var result = RunGenerator(source, ("ShinyMauiShell_GenerateAiExtensions", "true"));
+        var aiSource = GetGeneratedSource(result, "AiExtensions.g.cs");
+
+        // Reflection can't read GeneratedRouteInfo's constructor parameter names in a trimmed app,
+        // so both tools serialize through the source-generated context.
+        aiSource.ShouldContain("options.TypeInfoResolverChain.Insert(0, global::Shiny.Infrastructure.ShinyShellJsonContext.Default);");
+        aiSource.Split("serializerOptions: JsonOptions").Length.ShouldBe(3);
+    }
+
+    #endregion
+
+    static Compilation RunGeneratorAndCompile(string source, params (string Key, string Value)[] buildProperties)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText(StubTypes + source, new CSharpParseOptions(LanguageVersion.Latest));
+
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location))
+            .Cast<MetadataReference>()
+            .ToList();
+
+        var compilation = CSharpCompilation.Create(
+            "TestAssembly",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var provider = new MockAnalyzerConfigOptionsProvider(buildProperties.ToDictionary(
+            x => "build_property." + x.Key,
+            x => x.Value,
+            StringComparer.OrdinalIgnoreCase));
+        CSharpGeneratorDriver.Create(new ShinyShellGenerator())
+            .WithUpdatedAnalyzerConfigOptions(provider)
+            .RunGeneratorsAndUpdateCompilation(compilation, out var output, out _);
+        return output;
+    }
 
     static GeneratorRunResult RunGenerator(string source, params (string Key, string Value)[] buildProperties)
     {

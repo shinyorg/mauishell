@@ -1036,7 +1036,7 @@ public static class AiExtensions
 }
 
 // --- AI class and DI extension below generated when AI extensions are enabled ---
-// (enabled by default when Microsoft.Extensions.AI is referenced)
+// (opt-in: set ShinyMauiShell_GenerateAiExtensions to true and reference Microsoft.Extensions.AI)
 
 // AiMauiShellTools — inject via DI for AI-powered navigation
 public class AiMauiShellTools
@@ -1109,7 +1109,7 @@ The `route` parameter in `[ShellMap]` drives the generated constant and method n
 
 ### Configuring Source Generation
 
-Disable individual generated files via MSBuild properties:
+Turn individual generated files on or off via MSBuild properties:
 
 ```xml
 <PropertyGroup>
@@ -1119,8 +1119,8 @@ Disable individual generated files via MSBuild properties:
     <!-- Disable NavigationExtensions.g.cs, NavigationBuilderNavExtensions.g.cs, DialogExtensions.g.cs, and NavigationBuilderExtensions.g.cs (AddGeneratedMaps) -->
     <ShinyMauiShell_GenerateNavExtensions>false</ShinyMauiShell_GenerateNavExtensions>
 
-    <!-- Disable AI extensions (enabled by default, requires Microsoft.Extensions.AI) -->
-    <ShinyMauiShell_GenerateAiExtensions>false</ShinyMauiShell_GenerateAiExtensions>
+    <!-- Enable AI extensions (opt-in, requires Microsoft.Extensions.AI) -->
+    <ShinyMauiShell_GenerateAiExtensions>true</ShinyMauiShell_GenerateAiExtensions>
 
     <!-- Customize the generated AI tools class name (default: AiMauiShellTools) -->
     <ShinyMauiShell_AiToolsClassName>MyAppAiTools</ShinyMauiShell_AiToolsClassName>
@@ -1137,7 +1137,7 @@ Disable individual generated files via MSBuild properties:
 |---|---|---|
 | `ShinyMauiShell_GenerateRouteConstants` | `true` | `Routes.g.cs` |
 | `ShinyMauiShell_GenerateNavExtensions` | `true` | All navigation extensions, `DialogExtensions.g.cs`, and `AddGeneratedMaps` |
-| `ShinyMauiShell_GenerateAiExtensions` | `true` | `AiMauiShellTools` class, `AddAiTools()`, `GetAiToolApplicableGeneratedRoutes`, `NavigateToRoute`, and `Prompt`. Requires `Microsoft.Extensions.AI` package (**SHINY003** error if missing). Set to `false` to disable |
+| `ShinyMauiShell_GenerateAiExtensions` | `false` | `AiMauiShellTools` class, `AddAiTools()`, `GetAiToolApplicableGeneratedRoutes`, `NavigateToRoute`, and `Prompt`. Opt-in: set to `true` to generate them. Requires `Microsoft.Extensions.AI` (**SHINY003** error if missing) |
 | `ShinyMauiShell_AiToolsClassName` | `AiMauiShellTools` | Class name for the generated AI tools class |
 | `ShinyMauiShell_AiExtensionsClassName` | `AiExtensions` | Class name for the static route info extensions class |
 | `ShinyMauiShell_AiNavigateMethodName` | `NavigateToRoute` | Method name for the AI-friendly navigate method |
@@ -1380,11 +1380,19 @@ public partial class WorkOrderViewModel : ObservableObject
 }
 ```
 
-2. **Install `Microsoft.Extensions.AI`** — AI extensions are enabled by default when this package is referenced:
+2. **Install `Microsoft.Extensions.AI` and turn AI extensions on** — they are opt-in:
 
 ```bash
 dotnet add package Microsoft.Extensions.AI
 ```
+
+```xml
+<PropertyGroup>
+    <ShinyMauiShell_GenerateAiExtensions>true</ShinyMauiShell_GenerateAiExtensions>
+</PropertyGroup>
+```
+
+The generated tools serialize through the library's source-generated `ShinyShellJsonContext`, so they work in trimmed and AOT apps.
 
 3. **Register AI tools in DI** — Use the generated `AddAiTools()` extension:
 

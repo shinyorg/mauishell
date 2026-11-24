@@ -365,6 +365,7 @@ public class ShinyShellGenerator : IIncrementalGenerator
                 typeSymbol.ToDisplayString(),
                 GetBoolArg(shellProperty, 1, "required", true),
                 GetStringArg(shellProperty, 0, "description"),
+                typeSymbol.IsReferenceType,
                 enumType != null,
                 enumValues
             ));
@@ -714,7 +715,7 @@ public class ShinyShellGenerator : IIncrementalGenerator
                 sb.Append($", {prop.TypeName} {ToCamelCase(prop.Name)}");
 
             foreach (var prop in queryProps)
-                sb.Append($", {prop.TypeName} {ToCamelCase(prop.Name)} = {GetDefaultValue(prop.TypeName)}");
+                sb.Append($", {OptionalParameterType(prop)} {ToCamelCase(prop.Name)} = {GetDefaultValue(prop)}");
 
             sb.AppendLine(")");
             sb.AppendLine("    {");
@@ -887,11 +888,11 @@ public class ShinyShellGenerator : IIncrementalGenerator
             // Add optional parameters last
             foreach (var prop in optionalParams)
             {
-                var defaultValue = GetDefaultValue(prop.TypeName);
+                var defaultValue = GetDefaultValue(prop);
                 if (prop.Description != null)
-                    sb.Append($", [global::System.ComponentModel.Description(\"{EscapeString(prop.Description)}\")] {prop.TypeName} {ToCamelCase(prop.Name)} = {defaultValue}");
+                    sb.Append($", [global::System.ComponentModel.Description(\"{EscapeString(prop.Description)}\")] {OptionalParameterType(prop)} {ToCamelCase(prop.Name)} = {defaultValue}");
                 else
-                    sb.Append($", {prop.TypeName} {ToCamelCase(prop.Name)} = {defaultValue}");
+                    sb.Append($", {OptionalParameterType(prop)} {ToCamelCase(prop.Name)} = {defaultValue}");
             }
 
             if (cls.Description != null)
@@ -917,7 +918,7 @@ public class ShinyShellGenerator : IIncrementalGenerator
                 sb.Append($"        return navigator.NavigateTo<{cls.ViewModelFullName}>(x => ");
                 sb.Append("{ ");
 
-                var assignments = cls.Properties.Select(p => $"x.{p.Name} = {ToCamelCase(p.Name)}");
+                var assignments = cls.Properties.Select(p => Assignment(p, "x"));
                 sb.Append(string.Join("; ", assignments));
                 sb.Append(";");
 
@@ -989,11 +990,11 @@ public class ShinyShellGenerator : IIncrementalGenerator
 
             foreach (var prop in optionalParams)
             {
-                var defaultValue = GetDefaultValue(prop.TypeName);
+                var defaultValue = GetDefaultValue(prop);
                 if (prop.Description != null)
-                    sb.Append($", [global::System.ComponentModel.Description(\"{EscapeString(prop.Description)}\")] {prop.TypeName} {ToCamelCase(prop.Name)} = {defaultValue}");
+                    sb.Append($", [global::System.ComponentModel.Description(\"{EscapeString(prop.Description)}\")] {OptionalParameterType(prop)} {ToCamelCase(prop.Name)} = {defaultValue}");
                 else
-                    sb.Append($", {prop.TypeName} {ToCamelCase(prop.Name)} = {defaultValue}");
+                    sb.Append($", {OptionalParameterType(prop)} {ToCamelCase(prop.Name)} = {defaultValue}");
             }
 
             sb.Append(", global::System.Threading.CancellationToken cancellationToken = default");
@@ -1004,7 +1005,7 @@ public class ShinyShellGenerator : IIncrementalGenerator
             {
                 sb.Append($"        return navigator.ShowDialog<{cls.ViewModelFullName}, {resultType}>(x => ");
                 sb.Append("{ ");
-                sb.Append(string.Join("; ", cls.Properties.Select(p => $"x.{p.Name} = {ToCamelCase(p.Name)}")));
+                sb.Append(string.Join("; ", cls.Properties.Select(p => Assignment(p, "x"))));
                 sb.Append(";");
                 sb.AppendLine(" }, cancellationToken);");
             }
@@ -1089,15 +1090,15 @@ public class ShinyShellGenerator : IIncrementalGenerator
 
                 foreach (var prop in optionalParams)
                 {
-                    var defaultValue = GetDefaultValue(prop.TypeName);
-                    sb.Append($", {prop.TypeName} {ToCamelCase(prop.Name)} = {defaultValue}");
+                    var defaultValue = GetDefaultValue(prop);
+                    sb.Append($", {OptionalParameterType(prop)} {ToCamelCase(prop.Name)} = {defaultValue}");
                 }
 
                 sb.AppendLine(")");
                 sb.AppendLine("    {");
                 sb.Append($"        return builder.Add<{cls.ViewModelFullName}>(x => {{ ");
 
-                var assignments = cls.Properties.Select(p => $"x.{p.Name} = {ToCamelCase(p.Name)}");
+                var assignments = cls.Properties.Select(p => Assignment(p, "x"));
                 sb.Append(string.Join("; ", assignments));
                 sb.Append(";");
 
@@ -1230,6 +1231,20 @@ public class ShinyShellGenerator : IIncrementalGenerator
         sb.AppendLine("    public global::Microsoft.Extensions.AI.AITool[] Tools { get; }");
         sb.AppendLine();
 
+        // The tools marshal GeneratedRouteInfo and the navigate arguments as JSON. Reflection can't
+        // build that contract in a trimmed app (the record's constructor parameter names are gone),
+        // so the library's source-generated context goes first in the resolver chain.
+        sb.AppendLine("    static readonly global::System.Text.Json.JsonSerializerOptions JsonOptions = CreateJsonOptions();");
+        sb.AppendLine();
+        sb.AppendLine("    static global::System.Text.Json.JsonSerializerOptions CreateJsonOptions()");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var options = new global::System.Text.Json.JsonSerializerOptions(global::Microsoft.Extensions.AI.AIJsonUtilities.DefaultOptions);");
+        sb.AppendLine("        options.TypeInfoResolverChain.Insert(0, global::Shiny.Infrastructure.ShinyShellJsonContext.Default);");
+        sb.AppendLine("        options.MakeReadOnly();");
+        sb.AppendLine("        return options;");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
         // Constructor
         sb.AppendLine($"    public {options.AiToolsClassName}(global::Shiny.INavigator navigator)");
         sb.AppendLine("    {");
@@ -1239,7 +1254,8 @@ public class ShinyShellGenerator : IIncrementalGenerator
         sb.AppendLine("            global::Microsoft.Extensions.AI.AIFunctionFactory.Create(");
         sb.AppendLine("                () => GetAiToolApplicableGeneratedRoutes(),");
         sb.AppendLine("                name: \"GetRoutes\",");
-        sb.AppendLine("                description: \"Returns a list of available application routes with their descriptions and parameter schemas\"),");
+        sb.AppendLine("                description: \"Returns a list of available application routes with their descriptions and parameter schemas\",");
+        sb.AppendLine("                serializerOptions: JsonOptions),");
         sb.AppendLine("            global::Microsoft.Extensions.AI.AIFunctionFactory.Create(");
         sb.AppendLine($"                (string route, global::System.Collections.Generic.Dictionary<string, string>? args) => {options.AiNavigateMethodName}(route, args),");
         sb.AppendLine($"                name: \"{options.AiNavigateMethodName}\",");
@@ -1266,7 +1282,8 @@ public class ShinyShellGenerator : IIncrementalGenerator
             navDescBuilder.Append(") ");
         }
 
-        sb.AppendLine($"                description: \"{EscapeString(navDescBuilder.ToString().TrimEnd())}\")");
+        sb.AppendLine($"                description: \"{EscapeString(navDescBuilder.ToString().TrimEnd())}\",");
+        sb.AppendLine("                serializerOptions: JsonOptions)");
         sb.AppendLine("        ];");
         sb.AppendLine("    }");
         sb.AppendLine();
@@ -1391,9 +1408,29 @@ public class ShinyShellGenerator : IIncrementalGenerator
             .Replace("\"", "\\\"");
     }
 
-    static string GetDefaultValue(string typeName)
+    static string GetDefaultValue(ShellPropertyInfo prop)
+        => prop.IsReferenceType || prop.TypeName.EndsWith("?") ? "null" : "default";
+
+    /// <summary>
+    /// An optional property of a non-nullable reference type becomes a nullable parameter: its
+    /// default is null, which the property's type does not allow (CS8625 under #nullable enable).
+    /// </summary>
+    static string OptionalParameterType(ShellPropertyInfo prop)
+        => IsUnsetReference(prop) ? prop.TypeName + "?" : prop.TypeName;
+
+    static bool IsUnsetReference(ShellPropertyInfo prop)
+        => !prop.IsRequired && prop.IsReferenceType && !prop.TypeName.EndsWith("?");
+
+    /// <summary>
+    /// Sets the property from its parameter. An omitted optional reference argument (null) leaves the
+    /// property alone, so the viewmodel's own initializer survives instead of being overwritten.
+    /// </summary>
+    static string Assignment(ShellPropertyInfo prop, string target)
     {
-        return typeName.EndsWith("?") || typeName == "string" ? "null" : "default";
+        var name = ToCamelCase(prop.Name);
+        return IsUnsetReference(prop)
+            ? $"if ({name} is not null) {target}.{prop.Name} = {name}"
+            : $"{target}.{prop.Name} = {name}";
     }
 
     static string GetParameterTypeName(ShellPropertyInfo p)
@@ -1482,6 +1519,7 @@ record ShellPropertyInfo(
     string TypeName,
     bool IsRequired,
     string Description,
+    bool IsReferenceType,
     bool IsEnum = false,
     ImmutableArray<string> EnumValues = default
 );
